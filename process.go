@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 )
-
+// rando mcomment
 type ErrorColor struct {
 	R int16
 	G int16
