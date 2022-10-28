@@ -16,5 +16,8 @@
 *.jpeg
 *.png
 
+# ignore linkfile
+images
+
 # Dependency directories (remove the comment below to include it)
 # vendor/
