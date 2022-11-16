@@ -26,7 +26,7 @@ var (
 func init() {
 	imagePath = flag.String("p", "", "the path of the input image") //check later for non named thing
 	scaleFactor = flag.Int("scale", 10, "factor by which the image is downscaled")
-	paletteName = flag.String("colors", "FromImage", "the colorpalette to be used for dithering")
+	paletteName = flag.String("colors", "CMYK", "the colorpalette to be used for dithering")
 	gifFrames = flag.Int("frames", 15, "amount of different frames in gif format")
 	outputPath = flag.String("o", "output.png", "the desired output name and type")
 	amountOfColors = flag.Int("k", 10, "the amount of colors to use (no -colors flag specified!)")
@@ -72,6 +72,8 @@ func main() {
 
 	if *paletteName == "FromImage" {
 		fromImage = true
+	} else {
+		fromImage = false
 	}
 
 	palettes := getPalettesFromJson("colorpalette.json")
@@ -139,7 +141,7 @@ func main() {
 
 		var palette ColorPalette
 
-		if !fromImage {
+		if *paletteName != "FromImage" {
 			palette = getPaletteWithName(*paletteName, palettes)
 		} else {
 			palette = createColorPalette(pixels, *amountOfColors, 4)
