@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 )
+
 // rando mcomment
 type ErrorColor struct {
 	R int16
@@ -24,9 +25,6 @@ func roundDown(number float64) int {
 }
 
 func createColorPalette(pixels *[][]color.Color, k int, samplefactor int) ColorPalette {
-
-	fmt.Println("Start creating palette from image")
-
 	pointSet := PointSet{}
 	// sample only 1/samplefactor of the pixels
 	for i := 0; i < len((*pixels)); i += samplefactor {
@@ -43,7 +41,7 @@ func createColorPalette(pixels *[][]color.Color, k int, samplefactor int) ColorP
 	var consecutiveDone int
 	for consecutiveDone < 4 {
 		iteration++
-		done, _ = KM.iterate(0.001)
+		done, _ = KM.iterate(0.0001)
 		if done {
 			consecutiveDone++
 		} else {
@@ -56,7 +54,6 @@ func createColorPalette(pixels *[][]color.Color, k int, samplefactor int) ColorP
 		colorPalette.Colors = append(colorPalette.Colors, pointToColorSlice(KM.kMeans.Points[index]))
 	}
 
-	fmt.Println("	Done after", iteration, "iterations")
 	return colorPalette
 }
 
@@ -72,7 +69,6 @@ func pointToColorSlice(point Point) []int {
 
 func downscaleNoUpscale(pixels *[][]color.Color, factor int) {
 
-	fmt.Println("Start Downscale")
 	ppixels := *pixels
 	iLen := len(ppixels)
 	jLen := len(ppixels[0])
@@ -130,13 +126,11 @@ func downscaleNoUpscale(pixels *[][]color.Color, factor int) {
 	}
 	wg.Wait()
 	*pixels = newImage
-	fmt.Println("	Done.")
 
 }
 
 func upscale(pixels *[][]color.Color, factor int) {
 
-	fmt.Println("Start Upscaling")
 	ppixels := *pixels
 	iLen := len(ppixels)
 	jLen := len(ppixels[0])
@@ -168,12 +162,10 @@ func upscale(pixels *[][]color.Color, factor int) {
 	}
 	wg.Wait()
 	*pixels = newImage
-	fmt.Println("	Done.")
 }
 
 func downscale(pixels *[][]color.Color, factor int) {
 
-	fmt.Println("Start Downscale")
 	ppixels := *pixels
 	iLen := len(ppixels)
 	jLen := len(ppixels[0])
@@ -367,64 +359,42 @@ func redMeanDistance(pnt1, pnt2 Point) float64 {
 	return output
 }
 
-func floydSteinbergDithering(pixels *[][]color.Color, palette ColorPalette, floyd string) {
+func floydSteinbergDithering(pixels *[][]color.Color, palette ColorPalette, upscale, X, Y int) *image.Paletted {
 	fmt.Println("Start Dithering Algorithm (Floyd Steinberg)")
 
-	dawn := time.Now()
 	var neighborTime time.Duration
 
 	newPixels := *pixels
 	yLen := len(newPixels)
 	xLen := len(newPixels[0])
 
-	newImage := make([][]color.Color, yLen)
-	for i := 0; i < len(newImage); i++ {
-		newImage[i] = make([]color.Color, xLen)
-	}
+	upLeft := image.Point{0, 0}
+	lowRight := image.Point{Y, X}
+	r := image.Rectangle{upLeft, lowRight}
 
-	neighbors := paletteToNeighbors(palette)
+	p := colorPaletteToPalette(palette)
 
-	neighborSet := PointSet{
-		neighbors,
-	}
-
-	var kd KDTree
-	if floyd == "KD" {
-		kd = generateKDTreeFromPoints(neighborSet, 3)
-	}
+	newImage := image.NewPaletted(r, p)
 
 	for y := 0; y < yLen; y++ {
 		for x := 0; x < xLen; x++ {
 			oldPixel := newPixels[y][x]
 
-			// fmt.Println(originalColor)
-			// fmt.Println("R value binary: ", (float64(originalColor.R))/255.0)
-
-			// col := color.RGBA{
-			// 	uint8(math.Round((float64(originalColor.R))/255.0) * 255),
-			// 	uint8(math.Round((float64(originalColor.G))/255.0) * 255),
-			// 	uint8(math.Round((float64(originalColor.B))/255.0) * 255),
-			// 	uint8(math.Round((float64(originalColor.A))/255.0) * 255),
-			// }
-
 			start := time.Now()
-			var bestPoint Point
-			if floyd != "KD" {
-				bestPoint = findNearestNeighbor(neighbors, colorToPoint(oldPixel), redMeanDistance)
-			} else {
-				bestPoint, _ = kd.findNearestNeighborTo(colorToPoint(oldPixel), squaresDistance, 3)
-			}
 
-			newPixel := pointToColor(bestPoint)
+			newPixel := p.Convert(oldPixel)
 
 			neighborTime += time.Since(start)
-			//newPixel := col
 
 			err := getColorDifference(oldPixel, newPixel)
 
-			// printRGBAColor(originalColor, "Original")
-			// printRGBAColor(newPixel, "New")
-			// printErrorColor(err, "Error")
+			index := p.Index(oldPixel)
+
+			for i := 0; i < upscale; i++ {
+				for j := 0; j < upscale; j++ {
+					newImage.Pix[(y*upscale+i)+(x*upscale+j)*newImage.Stride] = uint8(index)
+				}
+			}
 
 			(*pixels)[y][x] = newPixel
 
@@ -443,10 +413,7 @@ func floydSteinbergDithering(pixels *[][]color.Color, palette ColorPalette, floy
 		}
 	}
 
-	elapsed := time.Since(dawn)
-	fmt.Println("	Done.")
-	fmt.Println("	Time spent neighbortesting: ", neighborTime)
-	fmt.Println("	Total time: ", elapsed)
+	return newImage
 }
 
 func printRGBAColor(col color.RGBA, title string) {
@@ -466,7 +433,6 @@ func printErrorColor(col ErrorColor, title string) {
 }
 
 func openImage(path string) (image.Image, error) {
-	fmt.Println("Start opening")
 	f, err := os.Open(path)
 	if err != nil {
 		fmt.Println(err)
@@ -490,7 +456,6 @@ func openImage(path string) (image.Image, error) {
 }
 
 func imageToPixels(img image.Image) *[][]color.Color {
-	fmt.Println("Start img to pix")
 	size := img.Bounds().Size()
 	var pixels [][]color.Color
 	//put pixels into two three two dimensional array
@@ -505,8 +470,7 @@ func imageToPixels(img image.Image) *[][]color.Color {
 	return &pixels
 }
 
-func pixelsToImage(pixels *[][]color.Color) image.Image {
-	fmt.Println("Start pix to img")
+func pixelsToImage(pixels *[][]color.Color) *image.RGBA {
 	rect := image.Rect(0, 0, len(*pixels), len((*pixels)[0]))
 	nImg := image.NewRGBA(rect)
 
@@ -531,7 +495,6 @@ func pixelsToImage(pixels *[][]color.Color) image.Image {
 }
 
 func savePNG(img image.Image, name string) {
-	fmt.Println("Start saving (PNG)")
 	f, err := os.Create(name + ".png")
 	if err != nil {
 		fmt.Println("couldn't save")
@@ -547,7 +510,6 @@ func savePNG(img image.Image, name string) {
 }
 
 func saveJPEG(img image.Image, name string, quality int) {
-	fmt.Println("Start saving (JPEG)")
 	f, err := os.Create(name + ".jpeg")
 	if err != nil {
 		fmt.Println("couldn't save")
@@ -566,4 +528,24 @@ func saveJPEG(img image.Image, name string, quality int) {
 	if err != nil {
 		fmt.Println("couldn't save")
 	}
+}
+
+func colorPaletteToPalette(colorpalette ColorPalette) color.Palette {
+	colors := []color.Color{}
+	var paletteColor color.Color
+
+	for i := 0; i < len(colorpalette.Colors); i++ {
+		paletteColor = color.RGBA{
+			uint8(colorpalette.Colors[i][0]),
+			uint8(colorpalette.Colors[i][1]),
+			uint8(colorpalette.Colors[i][2]),
+			uint8(colorpalette.Colors[i][3]),
+		}
+		colors = append(colors, paletteColor)
+	}
+
+	var palette color.Palette
+	palette = colors
+
+	return palette
 }
