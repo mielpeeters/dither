@@ -360,8 +360,6 @@ func redMeanDistance(pnt1, pnt2 Point) float64 {
 }
 
 func floydSteinbergDithering(pixels *[][]color.Color, palette ColorPalette, upscale, X, Y int) *image.Paletted {
-	fmt.Println("Start Dithering Algorithm (Floyd Steinberg)")
-
 	var neighborTime time.Duration
 
 	newPixels := *pixels
@@ -438,8 +436,6 @@ func openImage(path string) (image.Image, error) {
 		fmt.Println(err)
 		return nil, err
 	}
-	fi, _ := f.Stat()
-	fmt.Println(fi.Name())
 
 	defer f.Close()
 
