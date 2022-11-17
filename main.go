@@ -85,7 +85,6 @@ func main() {
 
 	img.Bounds()
 
-	fmt.Println(*outputType)
 	if *outputType == "gif" {
 		var images []*image.Paletted
 		var scaleVar int
@@ -136,8 +135,6 @@ func main() {
 		X := len(*pixels)
 		Y := len((*pixels)[0])
 		downscaleNoUpscale(pixels, *scaleFactor)
-
-		fmt.Println("Start processing that image!")
 
 		var palette ColorPalette
 
