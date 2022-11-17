@@ -15,6 +15,7 @@
 *.jpg
 *.jpeg
 *.png
+*.gif
 
 # ignore linkfile
 images
