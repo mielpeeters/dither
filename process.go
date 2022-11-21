@@ -12,6 +12,10 @@ import (
 	"time"
 )
 
+var Reset = "\033[0m"
+var Cyan = "\033[36m"
+var Green = "\033[32m"
+
 // rando mcomment
 type ErrorColor struct {
 	R int16
@@ -360,6 +364,7 @@ func redMeanDistance(pnt1, pnt2 Point) float64 {
 }
 
 func floydSteinbergDithering(pixels *[][]color.Color, palette ColorPalette, upscale, X, Y int) *image.Paletted {
+	fmt.Println(Green + "Starting dithering process!" + Reset)
 	var neighborTime time.Duration
 
 	newPixels := *pixels
@@ -545,3 +550,4 @@ func colorPaletteToPalette(colorpalette ColorPalette) color.Palette {
 
 	return palette
 }
+

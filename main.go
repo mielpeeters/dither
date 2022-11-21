@@ -85,7 +85,7 @@ func main() {
 
 	img.Bounds()
 
-	if *outputType == "gif" {
+	if *outputType == "gif" || *outputType == "mp4" {
 		var images []*image.Paletted
 		var scaleVar int
 
@@ -113,20 +113,26 @@ func main() {
 			images = append(images, images[*gifFrames-i-1])
 		}
 
-		anim := gif.GIF{LoopCount: *gifFrames * 2}
+		if *outputType == "gif" {
+			anim := gif.GIF{LoopCount: *gifFrames * 2}
 
-		for _, img := range images {
-			anim.Image = append(anim.Image, img)
-			anim.Delay = append(anim.Delay, 0)
-		}
+			for _, img := range images {
+				anim.Image = append(anim.Image, img)
+				anim.Delay = append(anim.Delay, 0)
+			}
 
-		output := fmt.Sprintf(*outputPath)
-		file, err := os.Create(output)
-		defer file.Close()
-		if err != nil {
-			fmt.Println("Error create file")
+			output := fmt.Sprintf(*outputPath)
+			file, err := os.Create(output)
+			defer file.Close()
+			if err != nil {
+				fmt.Println("Error create file")
+			}
+			gif.EncodeAll(file, &anim)
+		} else {
+			for index, img := range images {
+				savePNG(img, "temp/" + *outputName + fmt.Sprint(index))
+			}
 		}
-		gif.EncodeAll(file, &anim)
 
 		fmt.Println("\nFile saved.")
 	} else {

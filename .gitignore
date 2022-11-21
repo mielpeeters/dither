@@ -26,3 +26,6 @@ imagesTwo
 
 # ignore binary
 process
+
+# ignore temporary directory
+temp
