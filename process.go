@@ -29,6 +29,7 @@ func roundDown(number float64) int {
 }
 
 func createColorPalette(pixels *[][]color.Color, k int, samplefactor int) ColorPalette {
+	fmt.Println(Cyan + "Creating color palette (knn)..." + Reset)
 	pointSet := PointSet{}
 	// sample only 1/samplefactor of the pixels
 	for i := 0; i < len((*pixels)); i += samplefactor {
@@ -58,6 +59,7 @@ func createColorPalette(pixels *[][]color.Color, k int, samplefactor int) ColorP
 		colorPalette.Colors = append(colorPalette.Colors, pointToColorSlice(KM.kMeans.Points[index]))
 	}
 
+	fmt.Println(Green + "	Done!!" + Reset)
 	return colorPalette
 }
 
@@ -72,7 +74,7 @@ func pointToColorSlice(point Point) []int {
 }
 
 func downscaleNoUpscale(pixels *[][]color.Color, factor int) {
-
+	fmt.Println(Cyan + "Downscaling..." + Reset)
 	ppixels := *pixels
 	iLen := len(ppixels)
 	jLen := len(ppixels[0])
@@ -130,11 +132,11 @@ func downscaleNoUpscale(pixels *[][]color.Color, factor int) {
 	}
 	wg.Wait()
 	*pixels = newImage
-
+	fmt.Println(Green + "	Done!" + Reset)
 }
 
 func upscale(pixels *[][]color.Color, factor int) {
-
+	fmt.Println(Cyan + "Upscaling..." + Reset)
 	ppixels := *pixels
 	iLen := len(ppixels)
 	jLen := len(ppixels[0])
@@ -166,10 +168,11 @@ func upscale(pixels *[][]color.Color, factor int) {
 	}
 	wg.Wait()
 	*pixels = newImage
+	fmt.Println(Green + "	Done!" + Reset)
 }
 
 func downscale(pixels *[][]color.Color, factor int) {
-
+	fmt.Println(Cyan + "Downscaling..." + Reset)
 	ppixels := *pixels
 	iLen := len(ppixels)
 	jLen := len(ppixels[0])
@@ -231,6 +234,7 @@ func downscale(pixels *[][]color.Color, factor int) {
 	}
 	wg.Wait()
 	*pixels = newImage
+	fmt.Println(Green + "	Done!" + Reset)
 }
 
 func addColorComponents(left int16, right int16) uint8 {
@@ -364,7 +368,7 @@ func redMeanDistance(pnt1, pnt2 Point) float64 {
 }
 
 func floydSteinbergDithering(pixels *[][]color.Color, palette ColorPalette, upscale, X, Y int) *image.Paletted {
-	fmt.Println(Green + "Starting dithering process!" + Reset)
+	fmt.Println(Cyan + "Starting dithering process!" + Reset)
 	var neighborTime time.Duration
 
 	newPixels := *pixels
@@ -415,7 +419,7 @@ func floydSteinbergDithering(pixels *[][]color.Color, palette ColorPalette, upsc
 			}
 		}
 	}
-
+	fmt.Println(Green + "	Done!" + Reset)
 	return newImage
 }
 

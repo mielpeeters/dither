@@ -33,6 +33,15 @@ func init() {
 	scaleGif = flag.Bool("scaleGif", false, "yeah")
 }
 
+func getSampleFactor(scaleFactor int) int {
+	output := 12 - 0.8 * float64(scaleFactor)
+	outputInt := int(output)
+	if outputInt < 0 {
+		outputInt = 0
+	}
+	return outputInt
+}
+
 func main() {
 	//os.Args[1]: image path
 	//os.Args[2]: downscale factor
@@ -147,7 +156,8 @@ func main() {
 		if *paletteName != "FromImage" {
 			palette = getPaletteWithName(*paletteName, palettes)
 		} else {
-			palette = createColorPalette(pixels, *amountOfColors, 4)
+			sampleFactor := getSampleFactor(*scaleFactor)
+			palette = createColorPalette(pixels, *amountOfColors, sampleFactor)
 		}
 
 		floydSteinbergDithering(pixels, palette, *scaleFactor, Y, X)
