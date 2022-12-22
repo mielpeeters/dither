@@ -21,6 +21,7 @@ var (
 	outputName     *string
 	fromImage      bool
 	scaleGif       *bool
+	amountKnnRuns  *int
 )
 
 func init() {
@@ -30,11 +31,12 @@ func init() {
 	gifFrames = flag.Int("frames", 15, "amount of different frames in gif format")
 	outputPath = flag.String("o", "output.png", "the desired output name and type")
 	amountOfColors = flag.Int("k", 10, "the amount of colors to use (no -colors flag specified!)")
+	amountKnnRuns = flag.Int("knn", 5, "the amount of KNN runs with random initialization.")
 	scaleGif = flag.Bool("scaleGif", false, "yeah")
 }
 
 func getSampleFactor(scaleFactor int) int {
-	output := 12 - 0.8 * float64(scaleFactor)
+	output := 12 - 0.8*float64(scaleFactor)
 	outputInt := int(output)
 	if outputInt < 0 {
 		outputInt = 0
@@ -108,7 +110,7 @@ func main() {
 			X := len(*pixels)
 			Y := len((*pixels)[0])
 			downscaleNoUpscale(pixels, scaleVar)
-			palette := createColorPalette(pixels, i, 4)
+			palette := createColorPalette(pixels, i, 4, *amountKnnRuns)
 			paletted := floydSteinbergDithering(pixels, palette, scaleVar, Y, X)
 			//upscale(pixels, 20)
 			images = append(images, paletted)
@@ -139,7 +141,7 @@ func main() {
 			gif.EncodeAll(file, &anim)
 		} else {
 			for index, img := range images {
-				savePNG(img, "temp/" + *outputName + fmt.Sprint(index))
+				savePNG(img, "temp/"+*outputName+fmt.Sprint(index))
 			}
 		}
 
@@ -157,7 +159,7 @@ func main() {
 			palette = getPaletteWithName(*paletteName, palettes)
 		} else {
 			sampleFactor := getSampleFactor(*scaleFactor)
-			palette = createColorPalette(pixels, *amountOfColors, sampleFactor)
+			palette = createColorPalette(pixels, *amountOfColors, sampleFactor, *amountKnnRuns)
 		}
 
 		floydSteinbergDithering(pixels, palette, *scaleFactor, Y, X)

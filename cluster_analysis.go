@@ -15,6 +15,7 @@ type KMeansProblem struct {
 	clusters       []PointSet
 	maxDist        float64 //Maximum distance within the hyperbox containing all points
 	distanceMetric func(pnt1, pnt2 Point) float64
+	currentError   float64
 }
 
 type Bounds struct {
@@ -117,9 +118,24 @@ func (KM KMeansProblem) update() float64 {
 	return max
 }
 
+func (KM KMeansProblem) totalDist() float64 {
+
+	var sum float64
+
+	for meanIndex := range KM.kMeans.Points { // iterate over all means
+		for pointIndex := range KM.clusters[meanIndex].Points {
+			sum += KM.distanceMetric(KM.kMeans.Points[meanIndex], KM.clusters[meanIndex].Points[pointIndex])
+		}
+	}
+
+	return sum
+}
+
 func (KM KMeansProblem) iterate(accuracy float64) (bool, float64) {
 	KM.assignment()
 	maxChange := KM.update()
+
+	KM.currentError = KM.totalDist()
 
 	return (maxChange * 100 / KM.maxDist) < accuracy, maxChange * 100 / KM.maxDist
 }
@@ -188,6 +204,7 @@ func createKMeansProblem(points PointSet, k int, distanceMetric func(pnt1, pnt2 
 		initClusters,
 		maxDist,
 		distanceMetric,
+		0,
 	}
 
 	return returnValue

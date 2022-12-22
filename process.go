@@ -28,7 +28,19 @@ func roundDown(number float64) int {
 	return int(math.Floor(number))
 }
 
-func createColorPalette(pixels *[][]color.Color, k int, samplefactor int) ColorPalette {
+func findMinIndex(arr []float64) int {
+	min := math.Inf(1) // Initialize min with the highest possible float64 value
+	minIndex := 0      // Initialize minIndex with 0
+	for i, v := range arr {
+		if v < min {
+			min = v
+			minIndex = i
+		}
+	}
+	return minIndex
+}
+
+func createColorPalette(pixels *[][]color.Color, k int, samplefactor int, kmTimes int) ColorPalette {
 	fmt.Println(Cyan + "Creating color palette (knn)..." + Reset)
 	pointSet := PointSet{}
 	// sample only 1/samplefactor of the pixels
@@ -38,29 +50,45 @@ func createColorPalette(pixels *[][]color.Color, k int, samplefactor int) ColorP
 			pointSet.Points[len(pointSet.Points)-1].Id = i*(len((*pixels))/samplefactor) + j
 		}
 	}
-
-	KM := createKMeansProblem(pointSet, k, redMeanDistance)
-
 	var done bool
 	var iteration int
 	var consecutiveDone int
-	for consecutiveDone < 4 {
-		iteration++
-		done, _ = KM.iterate(0.0001)
-		if done {
-			consecutiveDone++
-		} else {
-			consecutiveDone = 0
+
+	var colorPalettes []ColorPalette
+	var errors []float64
+
+	// do the algorithm kmTimes
+	for i := 0; i < kmTimes; i++ {
+		KM := createKMeansProblem(pointSet, k, redMeanDistance)
+
+		done = false
+		iteration = 0
+		consecutiveDone = 0
+
+		for consecutiveDone < 4 {
+			iteration++
+			done, _ = KM.iterate(0.0001)
+			if done {
+				consecutiveDone++
+			} else {
+				consecutiveDone = 0
+			}
 		}
+
+		colorPalette := ColorPalette{}
+		for index := range KM.kMeans.Points {
+			colorPalette.Colors = append(colorPalette.Colors, pointToColorSlice(KM.kMeans.Points[index]))
+		}
+
+		colorPalettes = append(colorPalettes, colorPalette)
+		errors = append(errors, KM.currentError)
 	}
 
-	colorPalette := ColorPalette{}
-	for index := range KM.kMeans.Points {
-		colorPalette.Colors = append(colorPalette.Colors, pointToColorSlice(KM.kMeans.Points[index]))
-	}
+	// now select the colorpalette with the lowest error!
+	minIndex := findMinIndex(errors)
 
 	fmt.Println(Green + "	Done!!" + Reset)
-	return colorPalette
+	return colorPalettes[minIndex]
 }
 
 func pointToColorSlice(point Point) []int {
@@ -554,4 +582,3 @@ func colorPaletteToPalette(colorpalette ColorPalette) color.Palette {
 
 	return palette
 }
-
