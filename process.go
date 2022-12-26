@@ -15,6 +15,7 @@ import (
 var Reset = "\033[0m"
 var Cyan = "\033[36m"
 var Green = "\033[32m"
+var Bold = "\033[3m"
 
 // rando mcomment
 type ErrorColor struct {
