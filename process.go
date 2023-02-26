@@ -9,13 +9,15 @@ import (
 	"math"
 	"os"
 	"sync"
-	"time"
 )
 
 var Reset = "\033[0m"
 var Cyan = "\033[36m"
 var Green = "\033[32m"
-var Bold = "\033[3m"
+var Itallic = "\033[3m"
+var Bold = "\033[1m"
+var Red = "\033[31m"
+var Blink = "\033[5m"
 
 // rando mcomment
 type ErrorColor struct {
@@ -42,7 +44,7 @@ func findMinIndex(arr []float64) int {
 }
 
 func createColorPalette(pixels *[][]color.Color, k int, samplefactor int, kmTimes int) ColorPalette {
-	fmt.Println(Cyan + "Creating color palette (knn)..." + Reset)
+	fmt.Println(Cyan + Bold + "Creating color palette (knn)..." + Reset)
 	pointSet := PointSet{}
 	// sample only 1/samplefactor of the pixels
 	for i := 0; i < len((*pixels)); i += samplefactor {
@@ -88,7 +90,7 @@ func createColorPalette(pixels *[][]color.Color, k int, samplefactor int, kmTime
 	// now select the colorpalette with the lowest error!
 	minIndex := findMinIndex(errors)
 
-	fmt.Println(Green + "	Done!!" + Reset)
+	fmt.Println(Green + Itallic + "	Done!!" + Reset)
 	return colorPalettes[minIndex]
 }
 
@@ -102,8 +104,15 @@ func pointToColorSlice(point Point) []int {
 	return returnValue
 }
 
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
 func downscaleNoUpscale(pixels *[][]color.Color, factor int) {
-	fmt.Println(Cyan + "Downscaling..." + Reset)
+	fmt.Println(Cyan + Bold + "Downscaling..." + Reset)
 	ppixels := *pixels
 	iLen := len(ppixels)
 	jLen := len(ppixels[0])
@@ -158,14 +167,15 @@ func downscaleNoUpscale(pixels *[][]color.Color, factor int) {
 			}
 			wg.Done()
 		}(i)
+
 	}
 	wg.Wait()
 	*pixels = newImage
-	fmt.Println(Green + "	Done!" + Reset)
+	fmt.Println(Green + Itallic + "	Done!" + Reset)
 }
 
 func upscale(pixels *[][]color.Color, factor int) {
-	fmt.Println(Cyan + "Upscaling..." + Reset)
+	fmt.Println(Cyan + Bold + "Upscaling..." + Reset)
 	ppixels := *pixels
 	iLen := len(ppixels)
 	jLen := len(ppixels[0])
@@ -197,11 +207,11 @@ func upscale(pixels *[][]color.Color, factor int) {
 	}
 	wg.Wait()
 	*pixels = newImage
-	fmt.Println(Green + "	Done!" + Reset)
+	fmt.Println(Green + Itallic + "	Done!" + Reset)
 }
 
 func downscale(pixels *[][]color.Color, factor int) {
-	fmt.Println(Cyan + "Downscaling..." + Reset)
+	fmt.Println(Cyan + Bold + "Downscaling..." + Reset)
 	ppixels := *pixels
 	iLen := len(ppixels)
 	jLen := len(ppixels[0])
@@ -263,7 +273,7 @@ func downscale(pixels *[][]color.Color, factor int) {
 	}
 	wg.Wait()
 	*pixels = newImage
-	fmt.Println(Green + "	Done!" + Reset)
+	fmt.Println(Green + Itallic + "	Done!" + Reset)
 }
 
 func addColorComponents(left int16, right int16) uint8 {
@@ -396,13 +406,17 @@ func redMeanDistance(pnt1, pnt2 Point) float64 {
 	return output
 }
 
-func floydSteinbergDithering(pixels *[][]color.Color, palette ColorPalette, upscale, X, Y int) *image.Paletted {
-	fmt.Println(Cyan + "Starting dithering process!" + Reset)
-	var neighborTime time.Duration
+func floydSteinbergDithering(pixels *[][]color.Color, palette ColorPalette, upscale, X, Y int) (*[][]color.Color, *image.Paletted) {
+	fmt.Println(Cyan + Bold + "Starting dithering process!" + Reset)
 
-	newPixels := *pixels
-	yLen := len(newPixels)
-	xLen := len(newPixels[0])
+	yLen := len(*pixels)
+	xLen := len((*pixels)[0])
+
+	newPixels := make([][]color.Color, yLen)
+	for y := 0; y < yLen; y++ {
+		newPixels[y] = make([]color.Color, xLen)
+		copy(newPixels[y], (*pixels)[y])
+	}
 
 	upLeft := image.Point{0, 0}
 	lowRight := image.Point{Y, X}
@@ -412,44 +426,43 @@ func floydSteinbergDithering(pixels *[][]color.Color, palette ColorPalette, upsc
 
 	newImage := image.NewPaletted(r, p)
 
-	for y := 0; y < yLen; y++ {
-		for x := 0; x < xLen; x++ {
-			oldPixel := newPixels[y][x]
+	blockX := 1024
 
-			start := time.Now()
+	for bx := 0; bx < xLen; bx += blockX {
+		for y := 0; y < yLen; y++ {
+			for x := bx; x < min(bx+blockX, xLen); x++ {
+				newPixels[y][x] = p.Convert((*pixels)[y][x])
 
-			newPixel := p.Convert(oldPixel)
+				err := getColorDifference((*pixels)[y][x], newPixels[y][x])
 
-			neighborTime += time.Since(start)
+				// index := p.Index(oldPixel)
 
-			err := getColorDifference(oldPixel, newPixel)
+				// // for i := 0; i < upscale; i++ {
+				// // 	for j := 0; j < upscale; j++ {
+				// // 		newImage.Pix[(y*upscale+i)+(x*upscale+j)*newImage.Stride] = uint8(index)
+				// // 	}
+				// // }
 
-			index := p.Index(oldPixel)
-
-			for i := 0; i < upscale; i++ {
-				for j := 0; j < upscale; j++ {
-					newImage.Pix[(y*upscale+i)+(x*upscale+j)*newImage.Stride] = uint8(index)
+				if x+1 < xLen {
+					(*pixels)[y][x+1] = addErrorToColor(err, (*pixels)[y][x+1], 7.0/16.0)
 				}
-			}
-
-			(*pixels)[y][x] = newPixel
-
-			if x+1 < xLen {
-				(*pixels)[y][x+1] = addErrorToColor(err, (*pixels)[y][x+1], 7.0/16.0)
-			}
-			if x-1 > 0 && y+1 < yLen {
-				(*pixels)[y+1][x-1] = addErrorToColor(err, (*pixels)[y+1][x-1], 3.0/16.0)
-			}
-			if y+1 < yLen {
-				(*pixels)[y+1][x] = addErrorToColor(err, (*pixels)[y+1][x], 5.0/16.0)
-			}
-			if x+1 < xLen && y+1 < yLen {
-				(*pixels)[y+1][x+1] = addErrorToColor(err, (*pixels)[y+1][x+1], 1.0/16.0)
+				if x-1 > 0 && y+1 < yLen {
+					(*pixels)[y+1][x-1] = addErrorToColor(err, (*pixels)[y+1][x-1], 3.0/16.0)
+				}
+				if y+1 < yLen {
+					(*pixels)[y+1][x] = addErrorToColor(err, (*pixels)[y+1][x], 5.0/16.0)
+				}
+				if x+1 < xLen && y+1 < yLen {
+					(*pixels)[y+1][x+1] = addErrorToColor(err, (*pixels)[y+1][x+1], 1.0/16.0)
+				}
 			}
 		}
 	}
-	fmt.Println(Green + "	Done!" + Reset)
-	return newImage
+
+	fmt.Println(Green + Itallic + "	Done!" + Reset)
+
+	// pixels = &newPixels
+	return &newPixels, newImage
 }
 
 func printRGBAColor(col color.RGBA, title string) {
@@ -482,17 +495,20 @@ func openImage(path string) (image.Image, error) {
 		fmt.Println("Decoding error:", err.Error())
 		return nil, err
 	}
-	// if format != "jpeg" {
-	// 	fmt.Println("image format is not jpeg")
-	// 	return nil, errors.New("")
-	// }
 	return img, nil
 }
 
+// imageToPixels converts an image.Image instance
+// into a column-major array
+//
+// more specifically, a pointer to a [][]color.Color array is returned,
+// indexed like so: color @ (x, y) -> (*return)[x][y]
+// where x indexes the outer array, selecting one column, and y indexes those arrays
 func imageToPixels(img image.Image) *[][]color.Color {
 	size := img.Bounds().Size()
 	var pixels [][]color.Color
-	//put pixels into two three two dimensional array
+	// put pixels into two dimensional array
+	// for every x value, store an array
 	for i := 0; i < size.X; i++ {
 		var y []color.Color
 		for j := 0; j < size.Y; j++ {

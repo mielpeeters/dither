@@ -22,6 +22,9 @@ var (
 	fromImage      bool
 	scaleGif       *bool
 	amountKnnRuns  *int
+	xPixels        *int
+	scale          int
+	paletteOutput  *bool
 )
 
 func init() {
@@ -33,22 +36,20 @@ func init() {
 	amountOfColors = flag.Int("k", 10, "the amount of colors to use (no -colors flag specified!)")
 	amountKnnRuns = flag.Int("knn", 5, "the amount of KNN runs with random initialization.")
 	scaleGif = flag.Bool("scaleGif", false, "yeah")
+	xPixels = flag.Int("x", 0, "amount of pixels in x direction")
+	paletteOutput = flag.Bool("showPalette", false, "output an image \"selectedPalette.png\" with used colorpalette.")
 }
 
 func getSampleFactor(scaleFactor int) int {
-	output := 12 - 0.8*float64(scaleFactor)
+	output := 12 - 0.2*float64(scaleFactor)
 	outputInt := int(output)
-	if outputInt < 0 {
-		outputInt = 0
+	if outputInt < 1 {
+		outputInt = 1
 	}
 	return outputInt
 }
 
 func main() {
-	//os.Args[1]: image path
-	//os.Args[2]: downscale factor
-	//os.Args[3]: colorpalette name, set to FromImage to generate
-	//os.Args[4]: only with FromImage: the amount of colors to be extracted
 
 	flag.Parse()
 
@@ -94,8 +95,6 @@ func main() {
 		return
 	}
 
-	img.Bounds()
-
 	if *outputType == "gif" || *outputType == "mp4" {
 		var images []*image.Paletted
 		var scaleVar int
@@ -111,7 +110,7 @@ func main() {
 			Y := len((*pixels)[0])
 			downscaleNoUpscale(pixels, scaleVar)
 			palette := createColorPalette(pixels, i, 4, *amountKnnRuns)
-			paletted := floydSteinbergDithering(pixels, palette, scaleVar, Y, X)
+			_, paletted := floydSteinbergDithering(pixels, palette, scaleVar, Y, X)
 			//upscale(pixels, 20)
 			images = append(images, paletted)
 
@@ -151,20 +150,32 @@ func main() {
 		pixels := imageToPixels(img)
 		X := len(*pixels)
 		Y := len((*pixels)[0])
-		downscaleNoUpscale(pixels, *scaleFactor)
+
+		if *xPixels != 0 {
+			scale = X / *xPixels
+		} else {
+			scale = *scaleFactor
+		}
+
+		downscaleNoUpscale(pixels, scale)
 
 		var palette ColorPalette
 
 		if *paletteName != "FromImage" {
 			palette = getPaletteWithName(*paletteName, palettes)
 		} else {
-			sampleFactor := getSampleFactor(*scaleFactor)
+			sampleFactor := getSampleFactor(scale)
 			palette = createColorPalette(pixels, *amountOfColors, sampleFactor, *amountKnnRuns)
 		}
 
-		floydSteinbergDithering(pixels, palette, *scaleFactor, Y, X)
+		if *xPixels != 0 || *paletteOutput {
+			paletteToJsonFile(palette, "selectedPalette.json")
+			paletteToImage(palette, "selectedPalette")
+		}
 
-		upscale(pixels, *scaleFactor)
+		pixels, _ = floydSteinbergDithering(pixels, palette, scale, Y, X)
+
+		upscale(pixels, scale)
 
 		nImg := pixelsToImage(pixels)
 

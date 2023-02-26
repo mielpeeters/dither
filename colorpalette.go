@@ -2,6 +2,8 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
+	"image/color"
 	"io/ioutil"
 	"math"
 )
@@ -36,6 +38,42 @@ func getPaletteWithName(name string, palettes []ColorPalette) ColorPalette {
 		colors,
 	}
 	return val
+}
+
+func paletteToJsonFile(palette ColorPalette, jsonFileName string) {
+	output, err := json.MarshalIndent(palette, "", "  ")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	err = ioutil.WriteFile(jsonFileName, output, 0644)
+
+	if err != nil {
+		fmt.Println(err)
+	}
+}
+
+func paletteToImage(palette ColorPalette, fileName string) {
+	pixels := make([][]color.Color, len(palette.Colors))
+
+	for i := 0; i < len(palette.Colors); i++ {
+		pixels[i] = make([]color.Color, 1)
+	}
+
+	for i := 0; i < len(palette.Colors); i++ {
+		col := color.RGBA{
+			uint8(palette.Colors[i][0]),
+			uint8(palette.Colors[i][1]),
+			uint8(palette.Colors[i][2]),
+			uint8(palette.Colors[i][3]),
+		}
+		pixels[i][0] = col
+	}
+
+	upscale(&pixels, 10)
+	image := pixelsToImage(&pixels)
+	savePNG(image, fileName)
 }
 
 func RGBAtoHSLA(rgba []float64) []float64 {
