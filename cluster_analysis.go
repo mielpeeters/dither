@@ -29,6 +29,7 @@ func ClosestMeanIndex(KM KMeansProblem, pointIndex int) int {
 	for meanIndex := range KM.kMeans.Points { //check all means
 
 		dist := KM.distanceMetric(KM.points.Points[pointIndex], KM.kMeans.Points[meanIndex])
+
 		if meanIndex == 0 {
 			minDist = dist
 			bestIndex = meanIndex

@@ -81,6 +81,35 @@ func (ps PointSet) mean() Point {
 	return meanPoint
 }
 
+func (ps PointSet) meanBright() Point {
+	meanCoords := []float64{}
+
+	if len(ps.Points) == 0 {
+		return Point{[]float64{}, 0}
+	} else {
+		for dim := 0; dim < ps.Points[0].Dimension(); dim++ {
+			meanCoords = append(meanCoords, 0.0)
+		}
+	}
+
+	for _, point := range ps.Points { // for each point
+		for i := 0; i < point.Dimension(); i++ { //for each dimension
+			meanCoords[i] += point.Coordinates[i]
+		}
+	}
+
+	for i := 0; i < ps.Points[0].Dimension(); i++ {
+		meanCoords[i] /= float64(len(ps.Points))
+	}
+
+	meanPoint := Point{
+		meanCoords,
+		0,
+	}
+
+	return meanPoint
+}
+
 func (ps PointSet) LowerAndUpperBounds() []Bounds {
 	// return value is a collection of lower and upper bounds, for each dimension!
 

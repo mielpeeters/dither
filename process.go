@@ -412,12 +412,6 @@ func floydSteinbergDithering(pixels *[][]color.Color, palette ColorPalette, upsc
 	yLen := len(*pixels)
 	xLen := len((*pixels)[0])
 
-	newPixels := make([][]color.Color, yLen)
-	for y := 0; y < yLen; y++ {
-		newPixels[y] = make([]color.Color, xLen)
-		copy(newPixels[y], (*pixels)[y])
-	}
-
 	upLeft := image.Point{0, 0}
 	lowRight := image.Point{Y, X}
 	r := image.Rectangle{upLeft, lowRight}
@@ -431,9 +425,11 @@ func floydSteinbergDithering(pixels *[][]color.Color, palette ColorPalette, upsc
 	for bx := 0; bx < xLen; bx += blockX {
 		for y := 0; y < yLen; y++ {
 			for x := bx; x < min(bx+blockX, xLen); x++ {
-				newPixels[y][x] = p.Convert((*pixels)[y][x])
+				oldPixel := (*pixels)[y][x]
 
-				err := getColorDifference((*pixels)[y][x], newPixels[y][x])
+				(*pixels)[y][x] = p.Convert((*pixels)[y][x])
+
+				err := getColorDifference(oldPixel, (*pixels)[y][x])
 
 				// index := p.Index(oldPixel)
 
@@ -462,7 +458,7 @@ func floydSteinbergDithering(pixels *[][]color.Color, palette ColorPalette, upsc
 	fmt.Println(Green + Itallic + "	Done!" + Reset)
 
 	// pixels = &newPixels
-	return &newPixels, newImage
+	return pixels, newImage
 }
 
 func printRGBAColor(col color.RGBA, title string) {
