@@ -23,7 +23,9 @@ type Bounds struct {
 	upper float64
 }
 
-func ClosestMeanIndex(KM KMeansProblem, pointIndex int) int {
+// ClosestMeanIndex returns the index within the KM.kMeans slice
+// of that mean which is closest to the given point, by index pointIndex (stored in KM.points)
+func ClosestMeanIndex(KM *KMeansProblem, pointIndex int) int {
 	var minDist float64
 	var bestIndex int
 	for meanIndex := range KM.kMeans.Points { //check all means
@@ -42,6 +44,9 @@ func ClosestMeanIndex(KM KMeansProblem, pointIndex int) int {
 	return bestIndex
 }
 
+// getContainingClusterIndex returns the index of the cluster that holds the point
+//
+// returns -1, -1 if none hold the point
 func (KM KMeansProblem) getContainingClusterIndex(point Point) (int, int) {
 	// returns -1 if no cluster was found which contains the given point
 	for clusterIndex, cluster := range KM.clusters {
@@ -53,6 +58,7 @@ func (KM KMeansProblem) getContainingClusterIndex(point Point) (int, int) {
 	return -1, -1
 }
 
+// assignment performs the assignment step of the KMeans algorithm: assigning points to clusters.
 func (KM KMeansProblem) assignment() {
 	wg := sync.WaitGroup{}
 	lock := sync.Mutex{}
@@ -60,7 +66,7 @@ func (KM KMeansProblem) assignment() {
 	for pointIndex, point := range KM.points.Points {
 		wg.Add(1)
 		go func(pointIndex int, point Point) {
-			bestIndex := ClosestMeanIndex(KM, pointIndex)
+			bestIndex := ClosestMeanIndex(&KM, pointIndex)
 
 			//only do something if that cluster doesn't already contain this point
 			var newContains bool = false
@@ -85,6 +91,7 @@ func (KM KMeansProblem) assignment() {
 	wg.Wait()
 }
 
+// update performs the update step in the KMeans algorithm: update the means to be the mean of their clusters
 func (KM KMeansProblem) update() float64 {
 	// calculating the means
 	wg := sync.WaitGroup{}
@@ -119,19 +126,39 @@ func (KM KMeansProblem) update() float64 {
 	return max
 }
 
+// totalDist returns the total distance from points to their assigned cluster mean
 func (KM KMeansProblem) totalDist() float64 {
 
 	var sum float64
 
+	wg := sync.WaitGroup{}
+	mutex := sync.Mutex{}
+
 	for meanIndex := range KM.kMeans.Points { // iterate over all means
-		for pointIndex := range KM.clusters[meanIndex].Points {
-			sum += KM.distanceMetric(KM.kMeans.Points[meanIndex], KM.clusters[meanIndex].Points[pointIndex])
-		}
+		wg.Add(1)
+		go func(points []Point, meanIndex int) {
+			localSum := 0.0
+			for pointIndex := range points {
+				localSum += KM.distanceMetric(KM.kMeans.Points[meanIndex], KM.clusters[meanIndex].Points[pointIndex])
+			}
+
+			mutex.Lock()
+			sum += localSum
+			mutex.Unlock()
+
+			wg.Done()
+		}(KM.clusters[meanIndex].Points, meanIndex)
 	}
 
+	wg.Wait()
 	return sum
 }
 
+// iterate performs one iteration of the KMeans algorithm
+//
+// returns:
+//   - whether accuracy was met, as a bool
+//   - the achieved change, maxChange / KM.maxDist, as a percentage (float)
 func (KM KMeansProblem) iterate(accuracy float64) (bool, float64) {
 	KM.assignment()
 	maxChange := KM.update()
