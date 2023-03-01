@@ -517,30 +517,44 @@ func imageToPixels(img image.Image) *[][]color.Color {
 }
 
 func pixelsToImage(pixels *[][]color.Color) *image.RGBA {
+	fmt.Println(Cyan + Bold + "Transforming pixels to an image!" + Reset)
+	defer fmt.Println(Green + Itallic + "	Done!" + Reset)
+
 	rect := image.Rect(0, 0, len(*pixels), len((*pixels)[0]))
 	nImg := image.NewRGBA(rect)
 
+	wg := sync.WaitGroup{}
+
 	for x := 0; x < len(*pixels); x++ {
-		for y := 0; y < len((*pixels)[0]); y++ {
-			q := (*pixels)[x]
-			if q == nil {
-				continue
+		wg.Add(1)
+		go func(x int) {
+			for y := 0; y < len((*pixels)[0]); y++ {
+				if (*pixels)[x] == nil {
+					continue
+				}
+				p := (*pixels)[x][y]
+				if p == nil {
+					continue
+				}
+				original, ok := color.RGBAModel.Convert(p).(color.RGBA)
+				if ok {
+					nImg.Set(x, y, original)
+				}
 			}
-			p := (*pixels)[x][y]
-			if p == nil {
-				continue
-			}
-			original, ok := color.RGBAModel.Convert(p).(color.RGBA)
-			if ok {
-				nImg.Set(x, y, original)
-			}
-		}
+
+			wg.Done()
+		}(x)
 	}
+
+	wg.Wait()
 
 	return nImg
 }
 
 func savePNG(img image.Image, name string) {
+	fmt.Println(Cyan + Bold + "Saving the PNG!" + Reset)
+	defer fmt.Println(Green + Itallic + "	Done!" + Reset)
+
 	f, err := os.Create(name + ".png")
 	if err != nil {
 		fmt.Println("couldn't save")
