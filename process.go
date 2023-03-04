@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"image/gif"
 	"image/jpeg"
 	"image/png"
 	"math"
@@ -413,7 +414,7 @@ func floydSteinbergDithering(pixels *[][]color.Color, palette ColorPalette, upsc
 	xLen := len((*pixels)[0])
 
 	upLeft := image.Point{0, 0}
-	lowRight := image.Point{Y, X}
+	lowRight := image.Point{yLen, xLen}
 	r := image.Rectangle{upLeft, lowRight}
 
 	p := colorPaletteToPalette(palette)
@@ -424,17 +425,18 @@ func floydSteinbergDithering(pixels *[][]color.Color, palette ColorPalette, upsc
 		for x := 0; x < xLen; x++ {
 			oldPixel := (*pixels)[y][x]
 
-			(*pixels)[y][x] = p.Convert((*pixels)[y][x])
+			colorIndex := uint8(p.Index(oldPixel))
+			(*pixels)[y][x] = p[colorIndex]
 
 			err := getColorDifference(oldPixel, (*pixels)[y][x])
 
-			// index := p.Index(oldPixel)
+			// for i := 0; i < upscale; i++ {
+			// 	for j := 0; j < upscale; j++ {
+			// 		newImage.Pix[(y*upscale+i)+(x*upscale+j)*newImage.Stride] = colorIndex
+			// 	}
+			// }
 
-			// // for i := 0; i < upscale; i++ {
-			// // 	for j := 0; j < upscale; j++ {
-			// // 		newImage.Pix[(y*upscale+i)+(x*upscale+j)*newImage.Stride] = uint8(index)
-			// // 	}
-			// // }
+			newImage.Set(y, x, oldPixel)
 
 			if x+1 < xLen {
 				(*pixels)[y][x+1] = addErrorToColor(err, (*pixels)[y][x+1], 7.0/16.0)
@@ -562,6 +564,22 @@ func savePNG(img image.Image, name string) {
 	err = png.Encode(f, img)
 	if err != nil {
 		fmt.Println("couldn't save")
+	}
+}
+
+func saveGIF(img image.Image, name string) {
+	fmt.Println(Cyan + Bold + "Saving the GIF!" + Reset)
+	defer fmt.Println(Green + Itallic + "	Done!" + Reset)
+
+	f, err := os.Create(name + ".gif")
+	if err != nil {
+		fmt.Println("couldn't save")
+	}
+	defer f.Close()
+
+	err = gif.Encode(f, img, nil)
+	if err != nil {
+		fmt.Println("Couldn't save GIF.")
 	}
 }
 
