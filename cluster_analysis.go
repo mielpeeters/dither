@@ -19,8 +19,8 @@ type KMeansProblem struct {
 }
 
 type Bounds struct {
-	lower float64
-	upper float64
+	lower float32
+	upper float32
 }
 
 // ClosestMeanIndex returns the index within the KM.kMeans slice
@@ -50,7 +50,7 @@ func ClosestMeanIndex(KM *KMeansProblem, pointIndex int) int {
 func (KM *KMeansProblem) getContainingClusterIndex(point Point) (int, int) {
 	// returns -1 if no cluster was found which contains the given point
 	for clusterIndex, cluster := range KM.clusters {
-		contains, containIndex := cluster.contains(point)
+		contains, containIndex := (&cluster).contains(point)
 		if contains {
 			return clusterIndex, containIndex
 		}
@@ -70,7 +70,7 @@ func (KM *KMeansProblem) assignment() {
 
 			//only do something if that cluster doesn't already contain this point
 			var newContains bool = false
-			newContains, _ = KM.clusters[bestIndex].contains(point)
+			newContains, _ = (&KM.clusters[bestIndex]).contains(point)
 
 			if !newContains {
 				currentContainIndex, containingInternal := KM.getContainingClusterIndex(point)
@@ -78,7 +78,7 @@ func (KM *KMeansProblem) assignment() {
 				lock.Lock()
 				if currentContainIndex > -1 {
 					//delete from containing cluster
-					KM.clusters[currentContainIndex] = KM.clusters[currentContainIndex].remove(containingInternal)
+					KM.clusters[currentContainIndex].remove(containingInternal)
 				}
 
 				//add to better cluster
@@ -103,7 +103,7 @@ func (KM *KMeansProblem) update() float64 {
 		wg.Add(1)
 		go func(clusterId int) {
 			old := KM.kMeans.Points[clusterId]
-			mean := KM.clusters[clusterId].mean()
+			mean := (&KM.clusters[clusterId]).mean()
 			if len(mean.Coordinates) == 0 {
 				KM.kMeans.Points[clusterId] = createRandomStart(KM.points, 1).Points[0] //bad choice, try another one
 			} else {
@@ -170,7 +170,7 @@ func (KM *KMeansProblem) iterate(accuracy float64) (bool, float64) {
 
 func createRandomStart(points PointSet, k int) PointSet {
 	//Get bounds so that the random starting points will at least lie in a reasonable region
-	bounds := points.LowerAndUpperBounds()
+	bounds := (&points).LowerAndUpperBounds()
 
 	returnValue := PointSet{
 		[]Point{},
@@ -186,14 +186,14 @@ func createRandomStart(points PointSet, k int) PointSet {
 	//set the dimension
 	dim := points.Points[0].Dimension()
 
-	var low float64
-	var upp float64
+	var low float32
+	var upp float32
 	for i := 0; i < k; i++ {
 		var currentPoint Point
 		for dimNum := 0; dimNum < dim; dimNum++ {
 			low = bounds[dimNum].lower                                                                //lower bound for this coordinate number
 			upp = bounds[dimNum].upper                                                                //upper bound for this coordinate number
-			currentPoint.Coordinates = append(currentPoint.Coordinates, rand.Float64()*(upp-low)+low) //random value between corr. bounds
+			currentPoint.Coordinates = append(currentPoint.Coordinates, rand.Float32()*(upp-low)+low) //random value between corr. bounds
 		}
 		returnValue.Points = append(returnValue.Points, currentPoint) // add the fully random point to the PointSet
 	}
@@ -210,7 +210,7 @@ func createKMeansProblem(points PointSet, k int, distanceMetric func(pnt1, pnt2 
 		initClusters = append(initClusters, PointSet{})
 	}
 
-	bounds := points.LowerAndUpperBounds()
+	bounds := (&points).LowerAndUpperBounds()
 
 	// point 1 has the lowest coordinate value of all points
 	// point 2 has the highest coordinate value of all points

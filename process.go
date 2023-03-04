@@ -338,7 +338,7 @@ func toRGBA(origColor color.Color) color.RGBA {
 
 func colorToPoint(clr color.Color) Point {
 	clrRGBA := toRGBA(clr)
-	coordinates := []float64{float64(clrRGBA.R), float64(clrRGBA.G), float64(clrRGBA.B), float64(clrRGBA.A)}
+	coordinates := []float32{float32(clrRGBA.R), float32(clrRGBA.G), float32(clrRGBA.B), float32(clrRGBA.A)}
 	//coordinates = RGBAtoHSLA(coordinates)
 	point := Point{
 		coordinates,
@@ -387,7 +387,7 @@ func paletteToNeighbors(palette ColorPalette) []Point {
 func squaresDistance(pnt1 Point, pnt2 Point) float64 {
 	var dist float64
 	for index := range pnt1.Coordinates {
-		dist += math.Pow((pnt1.Coordinates[index] - pnt2.Coordinates[index]), 2)
+		dist += math.Pow(float64(pnt1.Coordinates[index]-pnt2.Coordinates[index]), 2)
 	}
 
 	return dist
@@ -397,11 +397,11 @@ func redMeanDistance(pnt1, pnt2 Point) float64 {
 	// only to use with colors!
 	redMean := (pnt1.Coordinates[0] + pnt2.Coordinates[0]) / 2
 
-	output := (2 + redMean/256) * math.Pow(pnt1.Coordinates[0]-pnt2.Coordinates[0], 2)
+	output := float64(2+redMean/256) * math.Pow(float64(pnt1.Coordinates[0]-pnt2.Coordinates[0]), 2)
 
-	output += 4 * math.Pow(pnt1.Coordinates[1]-pnt2.Coordinates[1], 2)
+	output += 4 * math.Pow(float64(pnt1.Coordinates[1]-pnt2.Coordinates[1]), 2)
 
-	output += (2 + (255-redMean)/256) * math.Pow(pnt1.Coordinates[2]-pnt2.Coordinates[2], 2)
+	output += float64(2+(255-redMean)/256) * math.Pow(float64(pnt1.Coordinates[2]-pnt2.Coordinates[2]), 2)
 
 	return output
 }
@@ -420,37 +420,33 @@ func floydSteinbergDithering(pixels *[][]color.Color, palette ColorPalette, upsc
 
 	newImage := image.NewPaletted(r, p)
 
-	blockX := 1024
+	for y := 0; y < yLen; y++ {
+		for x := 0; x < xLen; x++ {
+			oldPixel := (*pixels)[y][x]
 
-	for bx := 0; bx < xLen; bx += blockX {
-		for y := 0; y < yLen; y++ {
-			for x := bx; x < min(bx+blockX, xLen); x++ {
-				oldPixel := (*pixels)[y][x]
+			(*pixels)[y][x] = p.Convert((*pixels)[y][x])
 
-				(*pixels)[y][x] = p.Convert((*pixels)[y][x])
+			err := getColorDifference(oldPixel, (*pixels)[y][x])
 
-				err := getColorDifference(oldPixel, (*pixels)[y][x])
+			// index := p.Index(oldPixel)
 
-				// index := p.Index(oldPixel)
+			// // for i := 0; i < upscale; i++ {
+			// // 	for j := 0; j < upscale; j++ {
+			// // 		newImage.Pix[(y*upscale+i)+(x*upscale+j)*newImage.Stride] = uint8(index)
+			// // 	}
+			// // }
 
-				// // for i := 0; i < upscale; i++ {
-				// // 	for j := 0; j < upscale; j++ {
-				// // 		newImage.Pix[(y*upscale+i)+(x*upscale+j)*newImage.Stride] = uint8(index)
-				// // 	}
-				// // }
-
-				if x+1 < xLen {
-					(*pixels)[y][x+1] = addErrorToColor(err, (*pixels)[y][x+1], 7.0/16.0)
-				}
-				if x-1 > 0 && y+1 < yLen {
-					(*pixels)[y+1][x-1] = addErrorToColor(err, (*pixels)[y+1][x-1], 3.0/16.0)
-				}
-				if y+1 < yLen {
-					(*pixels)[y+1][x] = addErrorToColor(err, (*pixels)[y+1][x], 5.0/16.0)
-				}
-				if x+1 < xLen && y+1 < yLen {
-					(*pixels)[y+1][x+1] = addErrorToColor(err, (*pixels)[y+1][x+1], 1.0/16.0)
-				}
+			if x+1 < xLen {
+				(*pixels)[y][x+1] = addErrorToColor(err, (*pixels)[y][x+1], 7.0/16.0)
+			}
+			if x-1 > 0 && y+1 < yLen {
+				(*pixels)[y+1][x-1] = addErrorToColor(err, (*pixels)[y+1][x-1], 3.0/16.0)
+			}
+			if y+1 < yLen {
+				(*pixels)[y+1][x] = addErrorToColor(err, (*pixels)[y+1][x], 5.0/16.0)
+			}
+			if x+1 < xLen && y+1 < yLen {
+				(*pixels)[y+1][x+1] = addErrorToColor(err, (*pixels)[y+1][x+1], 1.0/16.0)
 			}
 		}
 	}

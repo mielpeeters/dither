@@ -78,8 +78,8 @@ func TestKMSpeed(t *testing.T) {
 
 	args := testArgs{
 		"src/jordgubbar.jpg",
-		10,
-		10,
+		15,
+		5,
 		20,
 	}
 

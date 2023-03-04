@@ -133,10 +133,10 @@ func main() {
 
 			output := fmt.Sprintf(*outputPath)
 			file, err := os.Create(output)
-			defer file.Close()
 			if err != nil {
 				fmt.Println("Error create file")
 			}
+			defer file.Close()
 			gif.EncodeAll(file, &anim)
 		} else {
 			for index, img := range images {

@@ -195,7 +195,7 @@ func (kd KDTree) findNearestNeighborTo(point Point, distanceMetricFunction func(
 			break
 		}
 
-		hyperplanedist = math.Pow((point.Coordinates[currentLevel%nmbAxis] - currentNode.PointValue.Coordinates[currentLevel%nmbAxis]), 2)
+		hyperplanedist = math.Pow(float64(point.Coordinates[currentLevel%nmbAxis]-currentNode.PointValue.Coordinates[currentLevel%nmbAxis]), 2)
 
 		if kd.BestDist > hyperplanedist {
 			// the hypersphere intersects with the hyperplane

@@ -5,7 +5,7 @@ import (
 )
 
 type Point struct {
-	Coordinates []float64
+	Coordinates []float32
 	Id          int
 }
 
@@ -46,24 +46,22 @@ func (ps *PointSet) contains(point Point) (bool, int) {
 	return false, -1
 }
 
-func (ps *PointSet) remove(index int) PointSet {
+// removes the element at index from the PointSet, if alowed
+func (ps *PointSet) remove(index int) {
 	if index >= len(ps.Points) {
-		return *ps
+		return
 	}
 
 	ps.Points[index] = ps.Points[len(ps.Points)-1]
 
-	returnValue := PointSet{
-		ps.Points[:len(ps.Points)-1],
-	}
-	return returnValue
+	ps.Points = ps.Points[:len(ps.Points)-1]
 }
 
 func (ps *PointSet) mean() Point {
-	meanCoords := []float64{}
+	meanCoords := []float32{}
 
 	if len(ps.Points) == 0 {
-		return Point{[]float64{}, 0}
+		return Point{[]float32{}, 0}
 	} else {
 		for dim := 0; dim < ps.Points[0].Dimension(); dim++ {
 			meanCoords = append(meanCoords, 0.0)
@@ -72,7 +70,7 @@ func (ps *PointSet) mean() Point {
 
 	for _, point := range ps.Points { // for each point
 		for i := 0; i < point.Dimension(); i++ { //for each dimension
-			meanCoords[i] += point.Coordinates[i] / float64(len(ps.Points))
+			meanCoords[i] += point.Coordinates[i] / float32(len(ps.Points))
 		}
 	}
 	meanPoint := Point{
@@ -94,8 +92,8 @@ func (ps *PointSet) LowerAndUpperBounds() []Bounds {
 
 	dim := ps.Points[0].Dimension()
 
-	var currentLower float64
-	var currentUpper float64
+	var currentLower float32
+	var currentUpper float32
 
 	for coordNum := 0; coordNum < dim; coordNum++ {
 		currentLower = ps.Points[0].Coordinates[coordNum]
