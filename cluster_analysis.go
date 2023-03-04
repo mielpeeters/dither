@@ -47,7 +47,7 @@ func ClosestMeanIndex(KM *KMeansProblem, pointIndex int) int {
 // getContainingClusterIndex returns the index of the cluster that holds the point
 //
 // returns -1, -1 if none hold the point
-func (KM KMeansProblem) getContainingClusterIndex(point Point) (int, int) {
+func (KM *KMeansProblem) getContainingClusterIndex(point Point) (int, int) {
 	// returns -1 if no cluster was found which contains the given point
 	for clusterIndex, cluster := range KM.clusters {
 		contains, containIndex := cluster.contains(point)
@@ -59,14 +59,14 @@ func (KM KMeansProblem) getContainingClusterIndex(point Point) (int, int) {
 }
 
 // assignment performs the assignment step of the KMeans algorithm: assigning points to clusters.
-func (KM KMeansProblem) assignment() {
+func (KM *KMeansProblem) assignment() {
 	wg := sync.WaitGroup{}
 	lock := sync.Mutex{}
 
 	for pointIndex, point := range KM.points.Points {
 		wg.Add(1)
 		go func(pointIndex int, point Point) {
-			bestIndex := ClosestMeanIndex(&KM, pointIndex)
+			bestIndex := ClosestMeanIndex(KM, pointIndex)
 
 			//only do something if that cluster doesn't already contain this point
 			var newContains bool = false
@@ -92,7 +92,7 @@ func (KM KMeansProblem) assignment() {
 }
 
 // update performs the update step in the KMeans algorithm: update the means to be the mean of their clusters
-func (KM KMeansProblem) update() float64 {
+func (KM *KMeansProblem) update() float64 {
 	// calculating the means
 	wg := sync.WaitGroup{}
 	lock := sync.Mutex{}
@@ -127,7 +127,7 @@ func (KM KMeansProblem) update() float64 {
 }
 
 // totalDist returns the total distance from points to their assigned cluster mean
-func (KM KMeansProblem) totalDist() float64 {
+func (KM *KMeansProblem) totalDist() float64 {
 
 	var sum float64
 
@@ -159,7 +159,7 @@ func (KM KMeansProblem) totalDist() float64 {
 // returns:
 //   - whether accuracy was met, as a bool
 //   - the achieved change, maxChange / KM.maxDist, as a percentage (float)
-func (KM KMeansProblem) iterate(accuracy float64) (bool, float64) {
+func (KM *KMeansProblem) iterate(accuracy float64) (bool, float64) {
 	KM.assignment()
 	maxChange := KM.update()
 
