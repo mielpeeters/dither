@@ -29,3 +29,9 @@ process
 
 # ignore temporary directory
 temp
+
+# ignore processAllfile
+processAll.sh
+
+# selected palette
+selectedPalette.json
