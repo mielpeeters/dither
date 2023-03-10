@@ -30,11 +30,11 @@ type Node struct {
 
 const printing = false
 
-func (node Node) isLeafNode() bool {
+func (node *Node) isLeafNode() bool {
 	return node.Left == nil
 }
 
-func (node Node) isRootNode() bool {
+func (node *Node) isRootNode() bool {
 	return node.Parrent == nil
 }
 
@@ -84,7 +84,7 @@ func generateKDNodeFromPoints(points PointSet, axis int, nmbAxis int) *Node {
 	return &thisNode
 }
 
-func (kd KDTree) print() {
+func (kd *KDTree) print() {
 	fmt.Println("")
 	fmt.Println("")
 	fmt.Println("___________THIS IS A KD-TREE______________")
@@ -96,7 +96,7 @@ func (kd KDTree) print() {
 	fmt.Println("")
 }
 
-func (node Node) print(level int) {
+func (node *Node) print(level int) {
 	var space string
 	curLev := level
 	for curLev > 0 {
@@ -121,7 +121,7 @@ func (node Node) print(level int) {
 	fmt.Println(space, "* [ENDNODE] *")
 }
 
-func (node Node) goDownOneLevel(point Point, level int) (*Node, bool) {
+func (node *Node) goDownOneLevel(point Point, level int) (*Node, bool) {
 	var returnNode *Node
 	var returnCode bool
 	if point.Coordinates[level] < node.PointValue.Coordinates[level] {
@@ -142,13 +142,13 @@ func (node Node) goDownOneLevel(point Point, level int) (*Node, bool) {
 	return returnNode, returnCode
 }
 
-func (node Node) goUpOneLevel() *Node {
+func (node *Node) goUpOneLevel() *Node {
 	returnNode := node.Parrent
 
 	return returnNode
 }
 
-func (kd KDTree) findNearestNeighborTo(point Point, distanceMetricFunction func(Point, Point) float64, nmbAxis int) (Point, float64) {
+func (kd *KDTree) findNearestNeighborTo(point Point, distanceMetricFunction func(Point, Point) float64, nmbAxis int) (Point, float64) {
 	var currentLevel int
 	var currentBest Point
 	var currentNode *Node
