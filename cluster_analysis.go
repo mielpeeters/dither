@@ -52,7 +52,7 @@ func (KM *KMeansProblem) assignment() {
 	lock := sync.Mutex{}
 
 	// try to divide in 8 chunks, 9 also possible
-	pointChunks := KM.points.chunkPoints(len(KM.points.Points) / 8)
+	pointChunks := KM.points.chunkPoints(len(KM.points.Points) / 16)
 
 	startIndex := 0
 

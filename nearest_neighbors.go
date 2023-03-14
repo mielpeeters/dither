@@ -34,6 +34,7 @@ type pointSet struct {
 	Points []Point
 }
 
+// Kardinality returns the kardinality doesn't it
 func (ps *pointSet) Kardinality() int {
 	return len(ps.Points)
 }
