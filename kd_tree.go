@@ -6,12 +6,14 @@ import (
 	"time"
 )
 
+// KDTree is a kd tree struct
 type KDTree struct {
 	Root     *Node
 	Lookup   map[int]Point
 	BestDist float64
 }
 
+// Node is a node struct for within a KD tree
 type Node struct {
 	PointValue Point
 	Left       *Node
@@ -38,7 +40,7 @@ func (node *Node) isRootNode() bool {
 	return node.Parrent == nil
 }
 
-func generateKDTreeFromPoints(points PointSet, nmbAxis int) KDTree {
+func generateKDTreeFromPoints(points pointSet, nmbAxis int) KDTree {
 	var kd KDTree
 
 	root := generateKDNodeFromPoints(points, 0, nmbAxis)
@@ -50,7 +52,7 @@ func generateKDTreeFromPoints(points PointSet, nmbAxis int) KDTree {
 	return kd
 }
 
-func generateKDNodeFromPoints(points PointSet, axis int, nmbAxis int) *Node {
+func generateKDNodeFromPoints(points pointSet, axis int, nmbAxis int) *Node {
 	// generate a left and a right pointset
 	leftSet, rightSet, pivot := points.branchByMedian(axis)
 

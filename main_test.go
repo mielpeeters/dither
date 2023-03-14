@@ -14,8 +14,8 @@ type testArgs struct {
 }
 
 func printArgs(args *testArgs, elapsed time.Duration) {
-	log.Println(Bold, "\nRunning test:\n  - image:", (*args).image, "\n  - scale:", (*args).scale, "\n  - colors:", (*args).colors, "\n  - km times:", (*args).kmtimes, Reset)
-	log.Println(Bold, Blink, Green, "\nTest took", elapsed, Reset)
+	log.Println(bold, "\nRunning test:\n  - image:", (*args).image, "\n  - scale:", (*args).scale, "\n  - colors:", (*args).colors, "\n  - km times:", (*args).kmtimes, reset)
+	log.Println(bold, blink, green, "\nTest took", elapsed, reset)
 }
 
 func runFSDTest(args *testArgs) time.Duration {
@@ -33,7 +33,7 @@ func runFSDTest(args *testArgs) time.Duration {
 
 	downscaleNoUpscale(pixels, (*args).scale)
 
-	palettes := getPalettesFromJson("colorpalette.json")
+	palettes := getPalettesFromJSON("colorpalette.json")
 	palette := getPaletteWithName("GameBoy", palettes)
 
 	start := time.Now()
@@ -62,7 +62,7 @@ func runKMTest(args *testArgs) time.Duration {
 }
 
 func TestFSDSpeed(t *testing.T) {
-	log.Println(Bold, "\nStarting FSD Speed Test.\n", Reset)
+	log.Println(bold, "\nStarting FSD Speed Test.\n", reset)
 
 	args := testArgs{
 		"src/jordgubbar.jpg",
@@ -74,7 +74,7 @@ func TestFSDSpeed(t *testing.T) {
 }
 
 func TestKMSpeed(t *testing.T) {
-	log.Println(Bold, "\nStarting KMeans Speed Test.\n", Reset)
+	log.Println(bold, "\nStarting KMeans Speed Test.\n", reset)
 
 	args := testArgs{
 		"src/jordgubbar.jpg",

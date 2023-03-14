@@ -12,15 +12,15 @@ import (
 	"sync"
 )
 
-var Reset = "\033[0m"
-var Cyan = "\033[36m"
-var Green = "\033[32m"
-var Itallic = "\033[3m"
-var Bold = "\033[1m"
-var Red = "\033[31m"
-var Blink = "\033[5m"
+var reset = "\033[0m"
+var cyan = "\033[36m"
+var green = "\033[32m"
+var itallic = "\033[3m"
+var bold = "\033[1m"
+var red = "\033[31m"
+var blink = "\033[5m"
 
-// rando mcomment
+// ErrorColor errorcolor
 type ErrorColor struct {
 	R int16
 	G int16
@@ -45,13 +45,13 @@ func findMinIndex(arr []float64) int {
 }
 
 func createColorPalette(pixels *[][]color.Color, k int, samplefactor int, kmTimes int) ColorPalette {
-	fmt.Println(Cyan + Bold + "Creating color palette (knn)..." + Reset)
-	pointSet := PointSet{}
+	fmt.Println(cyan + bold + "Creating color palette (knn)..." + reset)
+	pointSet := pointSet{}
 	// sample only 1/samplefactor of the pixels
 	for i := 0; i < len((*pixels)); i += samplefactor {
 		for j := 0; j < len((*pixels)[0]); j += samplefactor {
 			pointSet.Points = append(pointSet.Points, colorToPoint((*pixels)[i][j]))
-			pointSet.Points[len(pointSet.Points)-1].Id = i*(len((*pixels))/samplefactor) + j
+			pointSet.Points[len(pointSet.Points)-1].ID = i*(len((*pixels))/samplefactor) + j
 		}
 	}
 	var done bool
@@ -88,7 +88,7 @@ func createColorPalette(pixels *[][]color.Color, k int, samplefactor int, kmTime
 	// now select the colorpalette with the lowest error!
 	minIndex := findMinIndex(errors)
 
-	fmt.Println(Green + Itallic + "	Done!!" + Reset)
+	fmt.Println(green + itallic + "	Done!!" + reset)
 	return colorPalettes[minIndex]
 }
 
@@ -110,7 +110,7 @@ func min(a, b int) int {
 }
 
 func downscaleNoUpscale(pixels *[][]color.Color, factor int) {
-	fmt.Println(Cyan + Bold + "Downscaling..." + Reset)
+	fmt.Println(cyan + bold + "Downscaling..." + reset)
 	ppixels := *pixels
 	iLen := len(ppixels)
 	jLen := len(ppixels[0])
@@ -169,11 +169,11 @@ func downscaleNoUpscale(pixels *[][]color.Color, factor int) {
 	}
 	wg.Wait()
 	*pixels = newImage
-	fmt.Println(Green + Itallic + "	Done!" + Reset)
+	fmt.Println(green + itallic + "	Done!" + reset)
 }
 
 func upscale(pixels *[][]color.Color, factor int) {
-	fmt.Println(Cyan + Bold + "Upscaling..." + Reset)
+	fmt.Println(cyan + bold + "Upscaling..." + reset)
 	ppixels := *pixels
 	iLen := len(ppixels)
 	jLen := len(ppixels[0])
@@ -205,11 +205,11 @@ func upscale(pixels *[][]color.Color, factor int) {
 	}
 	wg.Wait()
 	*pixels = newImage
-	fmt.Println(Green + Itallic + "	Done!" + Reset)
+	fmt.Println(green + itallic + "	Done!" + reset)
 }
 
 func downscale(pixels *[][]color.Color, factor int) {
-	fmt.Println(Cyan + Bold + "Downscaling..." + Reset)
+	fmt.Println(cyan + bold + "Downscaling..." + reset)
 	ppixels := *pixels
 	iLen := len(ppixels)
 	jLen := len(ppixels[0])
@@ -271,7 +271,7 @@ func downscale(pixels *[][]color.Color, factor int) {
 	}
 	wg.Wait()
 	*pixels = newImage
-	fmt.Println(Green + Itallic + "	Done!" + Reset)
+	fmt.Println(green + itallic + "	Done!" + reset)
 }
 
 func addColorComponents(left int16, right int16) uint8 {
@@ -405,7 +405,7 @@ func redMeanDistance(pnt1, pnt2 Point) float64 {
 }
 
 func floydSteinbergDithering(pixels *[][]color.Color, palette ColorPalette, upscale, X, Y int) (*[][]color.Color, *image.Paletted) {
-	fmt.Println(Cyan + Bold + "Starting dithering process!" + Reset)
+	fmt.Println(cyan + bold + "Starting dithering process!" + reset)
 
 	yLen := len(*pixels)
 	xLen := len((*pixels)[0])
@@ -450,7 +450,7 @@ func floydSteinbergDithering(pixels *[][]color.Color, palette ColorPalette, upsc
 		}
 	}
 
-	fmt.Println(Green + Itallic + "	Done!" + Reset)
+	fmt.Println(green + itallic + "	Done!" + reset)
 
 	// pixels = &newPixels
 	return pixels, newImage
@@ -512,8 +512,8 @@ func imageToPixels(img image.Image) *[][]color.Color {
 }
 
 func pixelsToImage(pixels *[][]color.Color) *image.RGBA {
-	fmt.Println(Cyan + Bold + "Transforming pixels to an image!" + Reset)
-	defer fmt.Println(Green + Itallic + "	Done!" + Reset)
+	fmt.Println(cyan + bold + "Transforming pixels to an image!" + reset)
+	defer fmt.Println(green + itallic + "	Done!" + reset)
 
 	rect := image.Rect(0, 0, len(*pixels), len((*pixels)[0]))
 	nImg := image.NewRGBA(rect)
@@ -547,8 +547,8 @@ func pixelsToImage(pixels *[][]color.Color) *image.RGBA {
 }
 
 func savePNG(img image.Image, name string) {
-	fmt.Println(Cyan + Bold + "Saving the PNG!" + Reset)
-	defer fmt.Println(Green + Itallic + "	Done!" + Reset)
+	fmt.Println(cyan + bold + "Saving the PNG!" + reset)
+	defer fmt.Println(green + itallic + "	Done!" + reset)
 
 	f, err := os.Create(name + ".png")
 	if err != nil {
@@ -565,8 +565,8 @@ func savePNG(img image.Image, name string) {
 }
 
 func saveGIF(img image.Image, name string) {
-	fmt.Println(Cyan + Bold + "Saving the GIF!" + Reset)
-	defer fmt.Println(Green + Itallic + "	Done!" + Reset)
+	fmt.Println(cyan + bold + "Saving the GIF!" + reset)
+	defer fmt.Println(green + itallic + "	Done!" + reset)
 
 	f, err := os.Create(name + ".gif")
 	if err != nil {
@@ -615,8 +615,7 @@ func colorPaletteToPalette(colorpalette ColorPalette) color.Palette {
 		colors = append(colors, paletteColor)
 	}
 
-	var palette color.Palette
-	palette = colors
+	palette := colors
 
 	return palette
 }

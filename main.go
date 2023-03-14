@@ -69,7 +69,7 @@ func main() {
 	// get the palette in which to create the new image
 	var palette ColorPalette
 	if *paletteName != "FromImage" {
-		palettes := getPalettesFromJson("colorpalette.json")
+		palettes := getPalettesFromJSON("colorpalette.json")
 		palette = getPaletteWithName(*paletteName, palettes)
 	} else {
 		sampleFactor := getSampleFactor(scale)
@@ -78,7 +78,7 @@ func main() {
 
 	// write the used palette to the output if needed
 	if *xPixels != 0 || *paletteOutput {
-		paletteToJsonFile(palette, "selectedPalette.json")
+		paletteToJSONFile(palette, "selectedPalette.json")
 		paletteToImage(palette, "selectedPalette")
 	}
 

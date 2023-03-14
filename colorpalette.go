@@ -8,12 +8,13 @@ import (
 	"math"
 )
 
+// ColorPalette contains name and colors of one colorpalette
 type ColorPalette struct {
 	Name   string  `json:"name"`
 	Colors [][]int `json:"colors"`
 }
 
-func getPalettesFromJson(jsonFileName string) []ColorPalette {
+func getPalettesFromJSON(jsonFileName string) []ColorPalette {
 	file, _ := ioutil.ReadFile(jsonFileName)
 
 	data := []ColorPalette{}
@@ -40,7 +41,7 @@ func getPaletteWithName(name string, palettes []ColorPalette) ColorPalette {
 	return val
 }
 
-func paletteToJsonFile(palette ColorPalette, jsonFileName string) {
+func paletteToJSONFile(palette ColorPalette, jsonFileName string) {
 	output, err := json.MarshalIndent(palette, "", "  ")
 	if err != nil {
 		fmt.Println(err)
@@ -76,7 +77,7 @@ func paletteToImage(palette ColorPalette, fileName string) {
 	savePNG(image, fileName)
 }
 
-func RGBAtoHSLA(rgba []float64) []float64 {
+func convRGBAtoHSLA(rgba []float64) []float64 {
 	r := float64(rgba[0]) / 255.0
 	g := float64(rgba[1]) / 255.0
 	b := float64(rgba[2]) / 255.0
@@ -119,7 +120,7 @@ func RGBAtoHSLA(rgba []float64) []float64 {
 	return output
 }
 
-func HSLAtoRGBA(hsla []float64) []float64 {
+func convHSLAtoRGBA(hsla []float64) []float64 {
 	h := hsla[0]
 	s := hsla[1] / 100
 	l := hsla[2] / 100

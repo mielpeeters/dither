@@ -7,17 +7,19 @@ import (
 	"time"
 )
 
+// KMeansProblem is a K Means clustering Problem struct
 type KMeansProblem struct {
-	kMeans         PointSet //The estimated cluster centers (at this step)
-	points         PointSet //The set of Points with kardinality n to subset into k clusters
+	kMeans         pointSet //The estimated cluster centers (at this step)
+	points         pointSet //The set of Points with kardinality n to subset into k clusters
 	k              int      //The dimension of this k-means problem (amount of clusters)
 	iterationStep  int      //The iteration step
-	clusters       []PointSet
+	clusters       []pointSet
 	maxDist        float64 //Maximum distance within the hyperbox containing all points
 	distanceMetric func(pnt1, pnt2 Point) float64
 	currentError   float64
 }
 
+// Bounds is a struct for lower - upper bounds
 type Bounds struct {
 	lower float32
 	upper float32
@@ -69,14 +71,14 @@ func (KM *KMeansProblem) assignment() {
 	startIndex := 0
 
 	// reset clusters
-	KM.clusters = make([]PointSet, KM.k)
+	KM.clusters = make([]pointSet, KM.k)
 
 	// handle each chunk in parallel
 	for _, points := range pointChunks {
 		wg.Add(1)
 
 		go func(points []Point, startIndex int) {
-			newClusters := make([]PointSet, KM.k)
+			newClusters := make([]pointSet, KM.k)
 
 			for i, point := range points {
 				bestIndex := ClosestMeanIndex(KM, startIndex+i)
@@ -105,22 +107,22 @@ func (KM *KMeansProblem) update() float64 {
 
 	changes := []float64{}
 
-	for clusterId := range KM.clusters {
+	for clusterID := range KM.clusters {
 		wg.Add(1)
-		go func(clusterId int) {
-			old := KM.kMeans.Points[clusterId]
-			mean := (&KM.clusters[clusterId]).mean()
+		go func(clusterID int) {
+			old := KM.kMeans.Points[clusterID]
+			mean := (&KM.clusters[clusterID]).mean()
 			if len(mean.Coordinates) == 0 {
-				KM.kMeans.Points[clusterId] = createRandomStart(KM.points, 1).Points[0] //bad choice, try another one
+				KM.kMeans.Points[clusterID] = createRandomStart(KM.points, 1).Points[0] //bad choice, try another one
 			} else {
-				KM.kMeans.Points[clusterId] = mean
+				KM.kMeans.Points[clusterID] = mean
 			}
-			change := KM.distanceMetric(old, KM.kMeans.Points[clusterId])
+			change := KM.distanceMetric(old, KM.kMeans.Points[clusterID])
 			lock.Lock()
 			changes = append(changes, change)
 			lock.Unlock()
 			wg.Done()
-		}(clusterId)
+		}(clusterID)
 	}
 	wg.Wait()
 
@@ -174,11 +176,11 @@ func (KM *KMeansProblem) iterate(accuracy float64) (bool, float64) {
 	return (maxChange * 100 / KM.maxDist) < accuracy, maxChange * 100 / KM.maxDist
 }
 
-func createRandomStart(points PointSet, k int) PointSet {
+func createRandomStart(points pointSet, k int) pointSet {
 	//Get bounds so that the random starting points will at least lie in a reasonable region
 	bounds := (&points).LowerAndUpperBounds()
 
-	returnValue := PointSet{
+	returnValue := pointSet{
 		[]Point{},
 	}
 
@@ -190,7 +192,7 @@ func createRandomStart(points PointSet, k int) PointSet {
 	rand.Seed(time.Now().UnixNano())
 
 	//set the dimension
-	dim := points.Points[0].Dimension()
+	dim := points.Points[0].dimension()
 
 	var low float32
 	var upp float32
@@ -207,11 +209,11 @@ func createRandomStart(points PointSet, k int) PointSet {
 	return returnValue
 }
 
-func createKMeansProblem(points PointSet, k int, distanceMetric func(pnt1, pnt2 Point) float64) KMeansProblem {
+func createKMeansProblem(points pointSet, k int, distanceMetric func(pnt1, pnt2 Point) float64) KMeansProblem {
 	kMeans := createRandomStart(points, k)
 
 	//Craete the initial clusters, consisting of just the random means in k different PointSets
-	initClusters := make([]PointSet, k)
+	initClusters := make([]pointSet, k)
 
 	bounds := (&points).LowerAndUpperBounds()
 
@@ -220,7 +222,7 @@ func createKMeansProblem(points PointSet, k int, distanceMetric func(pnt1, pnt2 
 	point1 := Point{}
 	point2 := Point{}
 
-	for dim := 0; dim < points.Points[0].Dimension(); dim++ {
+	for dim := 0; dim < points.Points[0].dimension(); dim++ {
 		point1.Coordinates = append(point1.Coordinates, bounds[dim].lower)
 		point2.Coordinates = append(point2.Coordinates, bounds[dim].upper)
 	}

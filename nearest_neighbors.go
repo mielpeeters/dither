@@ -4,20 +4,21 @@ import (
 	"sort"
 )
 
+// Point point
 type Point struct {
 	Coordinates []float32
-	Id          int
+	ID          int
 }
 
-func (p *Point) Dimension() int {
+func (p *Point) dimension() int {
 	return len(p.Coordinates)
 }
 
 func (p *Point) equals(point Point) bool {
-	if p.Dimension() != point.Dimension() { //check equality of Dimension
+	if p.dimension() != point.dimension() { //check equality of Dimension
 		return false
 	}
-	if p.Id != point.Id {
+	if p.ID != point.ID {
 		return false
 	}
 	for i := range p.Coordinates {
@@ -29,15 +30,15 @@ func (p *Point) equals(point Point) bool {
 	return true
 }
 
-type PointSet struct {
+type pointSet struct {
 	Points []Point
 }
 
-func (ps *PointSet) Kardinality() int {
+func (ps *pointSet) Kardinality() int {
 	return len(ps.Points)
 }
 
-func (ps *PointSet) contains(point Point) (bool, int) {
+func (ps *pointSet) contains(point Point) (bool, int) {
 	// wg := sync.WaitGroup{}
 
 	for i, pnt := range ps.Points {
@@ -48,7 +49,7 @@ func (ps *PointSet) contains(point Point) (bool, int) {
 	return false, -1
 }
 
-func (ps *PointSet) chunkPoints(chunkSize int) [][]Point {
+func (ps *pointSet) chunkPoints(chunkSize int) [][]Point {
 	var chunks [][]Point
 	for i := 0; i < len(ps.Points); i += chunkSize {
 		end := i + chunkSize
@@ -66,7 +67,7 @@ func (ps *PointSet) chunkPoints(chunkSize int) [][]Point {
 }
 
 // removes the element at index from the PointSet, if alowed
-func (ps *PointSet) remove(index int) {
+func (ps *pointSet) remove(index int) {
 	if index >= len(ps.Points) {
 		return
 	}
@@ -76,19 +77,18 @@ func (ps *PointSet) remove(index int) {
 	ps.Points = ps.Points[:len(ps.Points)-1]
 }
 
-func (ps *PointSet) mean() Point {
+func (ps *pointSet) mean() Point {
 	meanCoords := []float32{}
 
 	if len(ps.Points) == 0 {
 		return Point{[]float32{}, 0}
-	} else {
-		for dim := 0; dim < ps.Points[0].Dimension(); dim++ {
-			meanCoords = append(meanCoords, 0.0)
-		}
+	}
+	for dim := 0; dim < ps.Points[0].dimension(); dim++ {
+		meanCoords = append(meanCoords, 0.0)
 	}
 
 	for _, point := range ps.Points { // for each point
-		for i := 0; i < point.Dimension(); i++ { //for each dimension
+		for i := 0; i < point.dimension(); i++ { //for each dimension
 			meanCoords[i] += point.Coordinates[i] / float32(len(ps.Points))
 		}
 	}
@@ -100,7 +100,7 @@ func (ps *PointSet) mean() Point {
 	return meanPoint
 }
 
-func (ps *PointSet) LowerAndUpperBounds() []Bounds {
+func (ps *pointSet) LowerAndUpperBounds() []Bounds {
 	// return value is a collection of lower and upper bounds, for each dimension!
 
 	bounds := []Bounds{}
@@ -109,7 +109,7 @@ func (ps *PointSet) LowerAndUpperBounds() []Bounds {
 		return bounds
 	}
 
-	dim := ps.Points[0].Dimension()
+	dim := ps.Points[0].dimension()
 
 	var currentLower float32
 	var currentUpper float32
@@ -136,17 +136,17 @@ func (ps *PointSet) LowerAndUpperBounds() []Bounds {
 	return bounds
 }
 
-func (ps *PointSet) sortByAxis(axis int) {
+func (ps *pointSet) sortByAxis(axis int) {
 	sort.Slice(ps.Points, func(i int, j int) bool {
 		if ps.Points[i].Coordinates[axis] < ps.Points[j].Coordinates[axis] {
 			return true
-		} else {
-			return false
 		}
+		return false
+
 	})
 }
 
-func (ps *PointSet) branchByMedian(axis int) (PointSet, PointSet, Point) {
+func (ps *pointSet) branchByMedian(axis int) (pointSet, pointSet, Point) {
 	ps.sortByAxis(axis)
 
 	medianIndex := len(ps.Points) / 2
@@ -154,10 +154,10 @@ func (ps *PointSet) branchByMedian(axis int) (PointSet, PointSet, Point) {
 	left := ps.Points[:medianIndex]
 	right := ps.Points[medianIndex+1:]
 
-	leftSet := PointSet{
+	leftSet := pointSet{
 		left,
 	}
-	rightSet := PointSet{
+	rightSet := pointSet{
 		right,
 	}
 
