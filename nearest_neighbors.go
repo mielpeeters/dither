@@ -138,11 +138,7 @@ func (ps *pointSet) LowerAndUpperBounds() []Bounds {
 
 func (ps *pointSet) sortByAxis(axis int) {
 	sort.Slice(ps.Points, func(i int, j int) bool {
-		if ps.Points[i].Coordinates[axis] < ps.Points[j].Coordinates[axis] {
-			return true
-		}
-		return false
-
+		return ps.Points[i].Coordinates[axis] < ps.Points[j].Coordinates[axis]
 	})
 }
 

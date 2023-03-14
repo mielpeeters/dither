@@ -21,17 +21,6 @@ type Node struct {
 	Parrent    *Node
 }
 
-// type Level struct {
-// 	Pairs []Pair
-// }
-
-// type Pair struct {
-// 	Left  *Node
-// 	Right *Node
-// }
-
-const printing = false
-
 func (node *Node) isLeafNode() bool {
 	return node.Left == nil
 }

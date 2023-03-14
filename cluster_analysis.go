@@ -46,20 +46,6 @@ func ClosestMeanIndex(KM *KMeansProblem, pointIndex int) int {
 	return bestIndex
 }
 
-// getContainingClusterIndex returns the index of the cluster that holds the point
-//
-// returns -1, -1 if none hold the point
-func (KM *KMeansProblem) getContainingClusterIndex(point Point) (int, int) {
-	// returns -1 if no cluster was found which contains the given point
-	for clusterIndex, cluster := range KM.clusters {
-		contains, containIndex := (&cluster).contains(point)
-		if contains {
-			return clusterIndex, containIndex
-		}
-	}
-	return -1, -1
-}
-
 // assignment performs the assignment step of the KMeans algorithm: assigning points to clusters.
 func (KM *KMeansProblem) assignment() {
 	wg := sync.WaitGroup{}
