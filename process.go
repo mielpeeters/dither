@@ -55,7 +55,6 @@ func createColorPalette(pixels *[][]color.Color, k int, samplefactor int, kmTime
 		}
 	}
 	var done bool
-	var iteration int
 	var consecutiveDone int
 
 	var colorPalettes []ColorPalette
@@ -66,12 +65,10 @@ func createColorPalette(pixels *[][]color.Color, k int, samplefactor int, kmTime
 		KM := createKMeansProblem(pointSet, k, redMeanDistance)
 
 		done = false
-		iteration = 0
 		consecutiveDone = 0
 
-		for consecutiveDone < 4 {
-			iteration++
-			done, _ = KM.iterate(0.0001)
+		for consecutiveDone < 2 {
+			done, _ = KM.iterate(0.001)
 			if done {
 				consecutiveDone++
 			} else {

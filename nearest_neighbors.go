@@ -38,12 +38,31 @@ func (ps *PointSet) Kardinality() int {
 }
 
 func (ps *PointSet) contains(point Point) (bool, int) {
+	// wg := sync.WaitGroup{}
+
 	for i, pnt := range ps.Points {
 		if pnt.equals(point) { //check all points in ps for equality to point
 			return true, i
 		}
 	}
 	return false, -1
+}
+
+func (ps *PointSet) chunkPoints(chunkSize int) [][]Point {
+	var chunks [][]Point
+	for i := 0; i < len(ps.Points); i += chunkSize {
+		end := i + chunkSize
+
+		// necessary check to avoid slicing beyond
+		// ps.Points capacity
+		if end > len(ps.Points) {
+			end = len(ps.Points)
+		}
+
+		chunks = append(chunks, ps.Points[i:end])
+	}
+
+	return chunks
 }
 
 // removes the element at index from the PointSet, if alowed

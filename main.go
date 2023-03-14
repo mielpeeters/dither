@@ -24,7 +24,7 @@ func init() {
 	paletteName = flag.String("colors", "FromImage", "the colorpalette to be used for dithering")
 	outputPath = flag.String("o", "output.png", "the desired output name and type")
 	amountOfColors = flag.Int("k", 10, "the amount of colors to use (no -colors flag specified!)")
-	amountKnnRuns = flag.Int("knn", 5, "the amount of KNN runs with random initialization.")
+	amountKnnRuns = flag.Int("knn", 3, "the amount of KNN runs with random initialization.")
 	xPixels = flag.Int("x", 0, "amount of pixels in x direction")
 	paletteOutput = flag.Bool("showPalette", false, "output an image \"selectedPalette.png\" with used colorpalette.")
 }

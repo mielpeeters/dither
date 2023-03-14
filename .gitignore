@@ -35,3 +35,12 @@ processAll.sh
 
 # selected palette
 selectedPalette.json
+
+# profiling files
+*.prof
+
+# shell scripts
+*.sh
+
+# output directory
+out

@@ -63,30 +63,36 @@ func (KM *KMeansProblem) assignment() {
 	wg := sync.WaitGroup{}
 	lock := sync.Mutex{}
 
-	for pointIndex, point := range KM.points.Points {
+	// try to divide in 8 chunks, 9 also possible
+	pointChunks := KM.points.chunkPoints(len(KM.points.Points) / 8)
+
+	startIndex := 0
+
+	// reset clusters
+	KM.clusters = make([]PointSet, KM.k)
+
+	// handle each chunk in parallel
+	for _, points := range pointChunks {
 		wg.Add(1)
-		go func(pointIndex int, point Point) {
-			bestIndex := ClosestMeanIndex(KM, pointIndex)
 
-			//only do something if that cluster doesn't already contain this point
-			var newContains bool = false
-			newContains, _ = (&KM.clusters[bestIndex]).contains(point)
+		go func(points []Point, startIndex int) {
+			newClusters := make([]PointSet, KM.k)
 
-			if !newContains {
-				currentContainIndex, containingInternal := KM.getContainingClusterIndex(point)
-
-				lock.Lock()
-				if currentContainIndex > -1 {
-					//delete from containing cluster
-					KM.clusters[currentContainIndex].remove(containingInternal)
-				}
-
-				//add to better cluster
-				KM.clusters[bestIndex].Points = append(KM.clusters[bestIndex].Points, point)
-				lock.Unlock()
+			for i, point := range points {
+				bestIndex := ClosestMeanIndex(KM, startIndex+i)
+				newClusters[bestIndex].Points = append(newClusters[bestIndex].Points, point)
 			}
+
+			lock.Lock()
+			for cluster := range KM.clusters {
+				KM.clusters[cluster].Points = append(KM.clusters[cluster].Points, newClusters[cluster].Points...)
+			}
+			lock.Unlock()
+
 			wg.Done()
-		}(pointIndex, point)
+		}(points, startIndex)
+
+		startIndex += len(points)
 	}
 	wg.Wait()
 }
@@ -109,7 +115,7 @@ func (KM *KMeansProblem) update() float64 {
 			} else {
 				KM.kMeans.Points[clusterId] = mean
 			}
-			change := redMeanDistance(old, KM.kMeans.Points[clusterId])
+			change := KM.distanceMetric(old, KM.kMeans.Points[clusterId])
 			lock.Lock()
 			changes = append(changes, change)
 			lock.Unlock()
@@ -205,10 +211,7 @@ func createKMeansProblem(points PointSet, k int, distanceMetric func(pnt1, pnt2 
 	kMeans := createRandomStart(points, k)
 
 	//Craete the initial clusters, consisting of just the random means in k different PointSets
-	initClusters := []PointSet{}
-	for i := 0; i < k; i++ {
-		initClusters = append(initClusters, PointSet{})
-	}
+	initClusters := make([]PointSet, k)
 
 	bounds := (&points).LowerAndUpperBounds()
 
