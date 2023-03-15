@@ -1,4 +1,4 @@
-package main
+package nearneigh
 
 import (
 	"sort"
@@ -30,16 +30,17 @@ func (p *Point) equals(point Point) bool {
 	return true
 }
 
-type pointSet struct {
+// PointSet implements a slice of points
+type PointSet struct {
 	Points []Point
 }
 
 // Kardinality returns the kardinality doesn't it
-func (ps *pointSet) Kardinality() int {
+func (ps *PointSet) Kardinality() int {
 	return len(ps.Points)
 }
 
-func (ps *pointSet) contains(point Point) (bool, int) {
+func (ps *PointSet) contains(point Point) (bool, int) {
 	// wg := sync.WaitGroup{}
 
 	for i, pnt := range ps.Points {
@@ -50,7 +51,7 @@ func (ps *pointSet) contains(point Point) (bool, int) {
 	return false, -1
 }
 
-func (ps *pointSet) chunkPoints(chunkSize int) [][]Point {
+func (ps *PointSet) chunkPoints(chunkSize int) [][]Point {
 	var chunks [][]Point
 	for i := 0; i < len(ps.Points); i += chunkSize {
 		end := i + chunkSize
@@ -68,7 +69,7 @@ func (ps *pointSet) chunkPoints(chunkSize int) [][]Point {
 }
 
 // removes the element at index from the PointSet, if alowed
-func (ps *pointSet) remove(index int) {
+func (ps *PointSet) remove(index int) {
 	if index >= len(ps.Points) {
 		return
 	}
@@ -78,7 +79,7 @@ func (ps *pointSet) remove(index int) {
 	ps.Points = ps.Points[:len(ps.Points)-1]
 }
 
-func (ps *pointSet) mean() Point {
+func (ps *PointSet) mean() Point {
 	meanCoords := []float32{}
 
 	if len(ps.Points) == 0 {
@@ -101,7 +102,7 @@ func (ps *pointSet) mean() Point {
 	return meanPoint
 }
 
-func (ps *pointSet) LowerAndUpperBounds() []Bounds {
+func (ps *PointSet) LowerAndUpperBounds() []Bounds {
 	// return value is a collection of lower and upper bounds, for each dimension!
 
 	bounds := []Bounds{}
@@ -137,13 +138,13 @@ func (ps *pointSet) LowerAndUpperBounds() []Bounds {
 	return bounds
 }
 
-func (ps *pointSet) sortByAxis(axis int) {
+func (ps *PointSet) sortByAxis(axis int) {
 	sort.Slice(ps.Points, func(i int, j int) bool {
 		return ps.Points[i].Coordinates[axis] < ps.Points[j].Coordinates[axis]
 	})
 }
 
-func (ps *pointSet) branchByMedian(axis int) (pointSet, pointSet, Point) {
+func (ps *PointSet) branchByMedian(axis int) (PointSet, PointSet, Point) {
 	ps.sortByAxis(axis)
 
 	medianIndex := len(ps.Points) / 2
@@ -151,10 +152,10 @@ func (ps *pointSet) branchByMedian(axis int) (pointSet, pointSet, Point) {
 	left := ps.Points[:medianIndex]
 	right := ps.Points[medianIndex+1:]
 
-	leftSet := pointSet{
+	leftSet := PointSet{
 		left,
 	}
-	rightSet := pointSet{
+	rightSet := PointSet{
 		right,
 	}
 

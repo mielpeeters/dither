@@ -1,4 +1,4 @@
-package main
+package process
 
 import (
 	"fmt"
@@ -10,6 +10,9 @@ import (
 	"math"
 	"os"
 	"sync"
+
+	"github.com/mielpeeters/dither/colorpalette"
+	"github.com/mielpeeters/dither/nearneigh"
 )
 
 var reset = "\033[0m"
@@ -44,9 +47,9 @@ func findMinIndex(arr []float64) int {
 	return minIndex
 }
 
-func createColorPalette(pixels *[][]color.Color, k int, samplefactor int, kmTimes int) ColorPalette {
+func createColorPalette(pixels *[][]color.Color, k int, samplefactor int, kmTimes int) colorpalette.ColorPalette {
 	fmt.Println(cyan + bold + "Creating color palette (knn)..." + reset)
-	pointSet := pointSet{}
+	pointSet := nearneigh.PointSet{}
 	// sample only 1/samplefactor of the pixels
 	for i := 0; i < len((*pixels)); i += samplefactor {
 		for j := 0; j < len((*pixels)[0]); j += samplefactor {
@@ -57,7 +60,7 @@ func createColorPalette(pixels *[][]color.Color, k int, samplefactor int, kmTime
 	var done bool
 	var consecutiveDone int
 
-	var colorPalettes []ColorPalette
+	var colorPalettes []colorpalette.ColorPalette
 	var errors []float64
 
 	// do the algorithm kmTimes
@@ -75,7 +78,7 @@ func createColorPalette(pixels *[][]color.Color, k int, samplefactor int, kmTime
 			}
 		}
 
-		colorPalette := ColorPalette{}
+		colorPalette := colorpalette.ColorPalette{}
 		for index := range KM.kMeans.Points {
 			colorPalette.Colors = append(colorPalette.Colors, pointToColorSlice(KM.kMeans.Points[index]))
 		}
@@ -91,7 +94,7 @@ func createColorPalette(pixels *[][]color.Color, k int, samplefactor int, kmTime
 	return colorPalettes[minIndex]
 }
 
-func pointToColorSlice(point Point) []int {
+func pointToColorSlice(point nearneigh.Point) []int {
 	returnValue := []int{}
 
 	for _, value := range point.Coordinates {
@@ -333,11 +336,11 @@ func toRGBA(origColor color.Color) color.RGBA {
 	return orig
 }
 
-func colorToPoint(clr color.Color) Point {
+func colorToPoint(clr color.Color) nearneigh.Point {
 	clrRGBA := toRGBA(clr)
 	coordinates := []float32{float32(clrRGBA.R), float32(clrRGBA.G), float32(clrRGBA.B), float32(clrRGBA.A)}
 	//coordinates = RGBAtoHSLA(coordinates)
-	point := Point{
+	point := nearneigh.Point{
 		coordinates,
 		0,
 	}
@@ -355,7 +358,7 @@ func makeColor(R, G, B, A int) color.Color {
 	return col
 }
 
-func pointToColor(point Point) color.Color {
+func pointToColor(point nearneigh.Point) color.Color {
 	//rgba := HSLAtoRGBA(point.Coordinates)
 	col := color.RGBA{
 		uint8(point.Coordinates[0]),
@@ -367,8 +370,8 @@ func pointToColor(point Point) color.Color {
 	return col
 }
 
-func paletteToNeighbors(palette ColorPalette) []Point {
-	var neighbors []Point
+func paletteToNeighbors(palette colorpalette.ColorPalette) []nearneigh.Point {
+	var neighbors []nearneigh.Point
 	for _, clr := range palette.Colors {
 		colour := color.RGBA{
 			uint8(clr[0]),
@@ -381,7 +384,7 @@ func paletteToNeighbors(palette ColorPalette) []Point {
 	return neighbors
 }
 
-func squaresDistance(pnt1 Point, pnt2 Point) float64 {
+func squaresDistance(pnt1 nearneigh.Point, pnt2 nearneigh.Point) float64 {
 	var dist float64
 	for index := range pnt1.Coordinates {
 		dist += math.Pow(float64(pnt1.Coordinates[index]-pnt2.Coordinates[index]), 2)
@@ -390,7 +393,7 @@ func squaresDistance(pnt1 Point, pnt2 Point) float64 {
 	return dist
 }
 
-func redMeanDistance(pnt1, pnt2 Point) float64 {
+func redMeanDistance(pnt1, pnt2 nearneigh.Point) float64 {
 	// only to use with colors!
 	redMean := (pnt1.Coordinates[0] + pnt2.Coordinates[0]) / 2
 

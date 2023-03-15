@@ -1,4 +1,4 @@
-package main
+package colorpalette
 
 import (
 	"encoding/json"
