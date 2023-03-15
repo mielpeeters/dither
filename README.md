@@ -1,4 +1,4 @@
-# go-dither
+# dither
 Implements a simple Floyd Steinberg Dithering program.
 
 ## Install
