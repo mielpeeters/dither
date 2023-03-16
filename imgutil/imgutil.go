@@ -1,3 +1,5 @@
+// Package imgutil offers some useful general functions for working with images within the
+// dither module.
 package imgutil
 
 import (
@@ -22,9 +24,9 @@ const blink = "\033[5m"
 // ImageToPixels converts an image.Image instance
 // into a column-major array
 //
-// more specifically, a pointer to a [][]color.Color array is returned,
+// More specifically, a pointer to a [][]color.Color array is returned,
 // indexed like so: color @ (x, y) -> (*return)[x][y]
-// where x indexes the outer array, selecting one column, and y indexes those arrays
+// where x indexes the outer slice, selecting one column, and y indexes those slices
 func ImageToPixels(img image.Image) *[][]color.Color {
 	size := img.Bounds().Size()
 	var pixels [][]color.Color

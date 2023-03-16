@@ -6,12 +6,87 @@ import (
 	"image/color"
 	"io/ioutil"
 	"math"
+
+	"github.com/mielpeeters/dither/geom"
+	"github.com/mielpeeters/dither/kmeans"
 )
 
 // ColorPalette contains name and colors of one colorpalette
 type ColorPalette struct {
 	Name   string  `json:"name"`
 	Colors [][]int `json:"colors"`
+}
+
+// CreateColorPalette creates a new colorpalette using the k-means clustering algorithm
+//
+//   - samplefactor: how many pixles to skip, during sampling for the creatrion of the KMeans problem's cluster points
+//     (higher means faster, because less points to iterate over)
+//   - kmTimes defines the amount of times to start the k-means algorithm with random init, the best output is choosen
+func Create(pixels *[][]color.Color, k int, samplefactor int, kmTimes int) ColorPalette {
+	pointSet := geom.PointSet{}
+	// sample only 1/samplefactor of the pixels
+	for i := 0; i < len((*pixels)); i += samplefactor {
+		for j := 0; j < len((*pixels)[0]); j += samplefactor {
+			pointSet.Points = append(pointSet.Points, colorToPoint((*pixels)[i][j]))
+			pointSet.Points[len(pointSet.Points)-1].ID = i*(len((*pixels))/samplefactor) + j
+		}
+	}
+
+	var colorPalettes []ColorPalette
+	var errors []float64
+
+	// do the algorithm kmTimes
+	for i := 0; i < kmTimes; i++ {
+		KM := kmeans.CreateKMeansProblem(pointSet, k, geom.RedMeanDistance)
+
+		KM.Cluster(0.001, 2)
+
+		colorPalette := ColorPalette{}
+		for index := range KM.KMeans.Points {
+			colorPalette.Colors = append(colorPalette.Colors, pointToColorSlice(KM.KMeans.Points[index]))
+		}
+
+		colorPalettes = append(colorPalettes, colorPalette)
+		errors = append(errors, KM.TotalDist())
+	}
+
+	// now select the colorpalette with the lowest error!
+	minIndex := findMinIndex(errors)
+
+	return colorPalettes[minIndex]
+}
+
+func pointToColorSlice(point geom.Point) []int {
+	returnValue := []int{}
+
+	for _, value := range point.Coordinates {
+		returnValue = append(returnValue, int(value))
+	}
+
+	return returnValue
+}
+
+func colorToPoint(clr color.Color) geom.Point {
+	clrRGBA := ToRGBA(clr)
+	coordinates := []float32{float32(clrRGBA.R), float32(clrRGBA.G), float32(clrRGBA.B), float32(clrRGBA.A)}
+	//coordinates = RGBAtoHSLA(coordinates)
+	point := geom.Point{
+		Coordinates: coordinates,
+		ID:          0,
+	}
+	return point
+}
+
+func findMinIndex(arr []float64) int {
+	min := math.Inf(1) // Initialize min with the highest possible float64 value
+	minIndex := 0      // Initialize minIndex with 0
+	for i, v := range arr {
+		if v < min {
+			min = v
+			minIndex = i
+		}
+	}
+	return minIndex
 }
 
 // GetPalettesFromJSON returns a slice of ColorPalettes after reading them from a JSON file.

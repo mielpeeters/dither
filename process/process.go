@@ -9,7 +9,6 @@ import (
 
 	"github.com/mielpeeters/dither/colorpalette"
 	"github.com/mielpeeters/dither/geom"
-	"github.com/mielpeeters/dither/kmeans"
 )
 
 type errorColor struct {
@@ -23,18 +22,6 @@ func roundDown(number float64) int {
 	return int(math.Floor(number))
 }
 
-func findMinIndex(arr []float64) int {
-	min := math.Inf(1) // Initialize min with the highest possible float64 value
-	minIndex := 0      // Initialize minIndex with 0
-	for i, v := range arr {
-		if v < min {
-			min = v
-			minIndex = i
-		}
-	}
-	return minIndex
-}
-
 const reset = "\033[0m"
 const cyan = "\033[36m"
 const green = "\033[32m"
@@ -42,57 +29,6 @@ const itallic = "\033[3m"
 const bold = "\033[1m"
 const red = "\033[31m"
 const blink = "\033[5m"
-
-// CreateColorPalette creates a new colorpalette using the k-means clustering algorithm
-//
-//   - samplefactor: how many pixles to skip, during sampling for the creatrion of the KMeans problem's cluster points
-//     (higher means faster, because less points to iterate over)
-//   - kmTimes defines the amount of times to start the k-means algorithm with random init, the best output is choosen
-func CreateColorPalette(pixels *[][]color.Color, k int, samplefactor int, kmTimes int) colorpalette.ColorPalette {
-	fmt.Println(cyan + bold + "Creating color palette (knn)..." + reset)
-	pointSet := geom.PointSet{}
-	// sample only 1/samplefactor of the pixels
-	for i := 0; i < len((*pixels)); i += samplefactor {
-		for j := 0; j < len((*pixels)[0]); j += samplefactor {
-			pointSet.Points = append(pointSet.Points, colorToPoint((*pixels)[i][j]))
-			pointSet.Points[len(pointSet.Points)-1].ID = i*(len((*pixels))/samplefactor) + j
-		}
-	}
-
-	var colorPalettes []colorpalette.ColorPalette
-	var errors []float64
-
-	// do the algorithm kmTimes
-	for i := 0; i < kmTimes; i++ {
-		KM := kmeans.CreateKMeansProblem(pointSet, k, geom.RedMeanDistance)
-
-		KM.Cluster(0.001, 2)
-
-		colorPalette := colorpalette.ColorPalette{}
-		for index := range KM.KMeans.Points {
-			colorPalette.Colors = append(colorPalette.Colors, pointToColorSlice(KM.KMeans.Points[index]))
-		}
-
-		colorPalettes = append(colorPalettes, colorPalette)
-		errors = append(errors, KM.TotalDist())
-	}
-
-	// now select the colorpalette with the lowest error!
-	minIndex := findMinIndex(errors)
-
-	fmt.Println(green + itallic + "	Done!!" + reset)
-	return colorPalettes[minIndex]
-}
-
-func pointToColorSlice(point geom.Point) []int {
-	returnValue := []int{}
-
-	for _, value := range point.Coordinates {
-		returnValue = append(returnValue, int(value))
-	}
-
-	return returnValue
-}
 
 // Downscale scales the image down with a given integer factor
 func Downscale(pixels *[][]color.Color, factor int) {
@@ -236,17 +172,6 @@ func getColorDifference(left color.Color, right color.Color) errorColor {
 	return col
 }
 
-func colorToPoint(clr color.Color) geom.Point {
-	clrRGBA := colorpalette.ToRGBA(clr)
-	coordinates := []float32{float32(clrRGBA.R), float32(clrRGBA.G), float32(clrRGBA.B), float32(clrRGBA.A)}
-	//coordinates = RGBAtoHSLA(coordinates)
-	point := geom.Point{
-		Coordinates: coordinates,
-		ID:          0,
-	}
-	return point
-}
-
 func makeColor(R, G, B, A int) color.Color {
 	col := color.RGBA{
 		uint8(R),
@@ -271,7 +196,9 @@ func pointToColor(point geom.Point) color.Color {
 }
 
 // FloydSteinbergDithering applies the FS dithering effect
-func FloydSteinbergDithering(pixels *[][]color.Color, palette colorpalette.ColorPalette, upscale, X, Y int) (*[][]color.Color, *image.Paletted) {
+//
+// Returns a image.Paletted image pointer.
+func FloydSteinbergDithering(pixels *[][]color.Color, palette colorpalette.ColorPalette) *image.Paletted {
 	fmt.Println(cyan + bold + "Starting dithering process!" + reset)
 
 	yLen := len(*pixels)
@@ -294,12 +221,6 @@ func FloydSteinbergDithering(pixels *[][]color.Color, palette colorpalette.Color
 
 			err := getColorDifference(oldPixel, (*pixels)[y][x])
 
-			// for i := 0; i < upscale; i++ {
-			// 	for j := 0; j < upscale; j++ {
-			// 		newImage.Pix[(y*upscale+i)+(x*upscale+j)*newImage.Stride] = colorIndex
-			// 	}
-			// }
-
 			newImage.Set(y, x, oldPixel)
 
 			if x+1 < xLen {
@@ -319,6 +240,5 @@ func FloydSteinbergDithering(pixels *[][]color.Color, palette colorpalette.Color
 
 	fmt.Println(green + itallic + "	Done!" + reset)
 
-	// pixels = &newPixels
-	return pixels, newImage
+	return newImage
 }
