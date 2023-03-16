@@ -11,36 +11,5 @@
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 
-# Ignore images
-*.jpg
-*.jpeg
-*.png
-*.gif
-
-# ignore linkfile
-images*
-imagesTwo
-
-# Dependency directories (remove the comment below to include it)
-# vendor/
-
-# ignore binary
-go-dither
-
-# ignore temporary directory
-temp
-
-# ignore processAllfile
-processAll.sh
-
-# selected palette
-selectedPalette.json
-
-# profiling files
-*.prof
-
-# shell scripts
-*.sh
-
-# output directory
-out
+# hidden folders
+.vscode

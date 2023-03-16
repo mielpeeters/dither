@@ -28,30 +28,31 @@ import (
 )
 
 func main() {
-	// open the input image
-	img, err := imgutil.OpenImage(*imagePath)
-	if err != nil {
-		return
-	}
+    // open the input image
+    img, err := imgutil.OpenImage("path/to/imputImage.any")
+    if err != nil {
+    return
+    }
 
-	// convert the input into a slice of slices (2d array) of pixels 
-	pixels := imgutil.ImageToPixels(img)
+    // convert the input into a slice of slices (2d array) of pixels 
+    pixels := imgutil.ImageToPixels(img)
 
-	// scale the image down with a given scale
+    // scale the image down with a given scale
     scale := 10
-	process.Downscale(pixels, scale)
+    process.Downscale(pixels, scale)
 
-	// get the palette in which to create the new image
+    // get the palette in which to create the new image
     amountOfColors := 5
     sampleFactor := 4
     knnRuns := 3
     palette = colorpalette.Create(pixels, amountOfColors, sampleFactor, knnRuns)
 
-	// apply dithering to the image
-	paletted := process.FloydSteinbergDithering(pixels, palette)
+    // apply dithering to the image
+    diffusers := process.StuckiDiffuser()
+    paletted := process.ApplyErrorDiffusion(pixels, palette, diffusers)
 
-	// save the image as a GIF (efficient for paletted images)
-	imgutil.SaveGIF(paletted, "path/to/outputImage.gif")
+    // save the image as a GIF (efficient for paletted images)
+    imgutil.SaveGIF(paletted, "path/to/outputImage.gif")
 }
 ``` 
 Note that some of the functions used here are not optimal yet, and the usage will be made simpler in the future.
