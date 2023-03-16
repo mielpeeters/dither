@@ -1,21 +1,23 @@
-package kdtree 
+package kdtree
 
 import (
 	"fmt"
 	"math"
 	"time"
+
+	"github.com/mielpeeters/dither/geom"
 )
 
 // KDTree is a kd tree struct
 type KDTree struct {
 	Root     *Node
-	Lookup   map[int]Point
+	Lookup   map[int]geom.Point
 	BestDist float64
 }
 
 // Node is a node struct for within a KD tree
 type Node struct {
-	PointValue Point
+	PointValue geom.Point
 	Left       *Node
 	Right      *Node
 	Parrent    *Node
@@ -29,7 +31,7 @@ func (node *Node) isRootNode() bool {
 	return node.Parrent == nil
 }
 
-func generateKDTreeFromPoints(points pointSet, nmbAxis int) KDTree {
+func generateKDTreeFromPoints(points geom.PointSet, nmbAxis int) KDTree {
 	var kd KDTree
 
 	root := generateKDNodeFromPoints(points, 0, nmbAxis)
@@ -41,9 +43,9 @@ func generateKDTreeFromPoints(points pointSet, nmbAxis int) KDTree {
 	return kd
 }
 
-func generateKDNodeFromPoints(points pointSet, axis int, nmbAxis int) *Node {
+func generateKDNodeFromPoints(points geom.PointSet, axis int, nmbAxis int) *Node {
 	// generate a left and a right pointset
-	leftSet, rightSet, pivot := points.branchByMedian(axis)
+	leftSet, rightSet, pivot := points.BranchByMedian(axis)
 
 	thisNode := Node{
 		pivot,
@@ -112,7 +114,7 @@ func (node *Node) print(level int) {
 	fmt.Println(space, "* [ENDNODE] *")
 }
 
-func (node *Node) goDownOneLevel(point Point, level int) (*Node, bool) {
+func (node *Node) goDownOneLevel(point geom.Point, level int) (*Node, bool) {
 	var returnNode *Node
 	var returnCode bool
 	if point.Coordinates[level] < node.PointValue.Coordinates[level] {
@@ -139,9 +141,9 @@ func (node *Node) goUpOneLevel() *Node {
 	return returnNode
 }
 
-func (kd *KDTree) findNearestNeighborTo(point Point, distanceMetricFunction func(Point, Point) float64, nmbAxis int) (Point, float64) {
+func (kd *KDTree) findNearestNeighborTo(point geom.Point, distanceMetricFunction func(geom.Point, geom.Point) float64, nmbAxis int) (geom.Point, float64) {
 	var currentLevel int
-	var currentBest Point
+	var currentBest geom.Point
 	var currentNode *Node
 	var lastNode *Node
 	var exists bool

@@ -4,27 +4,15 @@ import (
 	"fmt"
 	"image"
 	"image/color"
-	"image/gif"
-	"image/jpeg"
-	"image/png"
 	"math"
-	"os"
 	"sync"
 
 	"github.com/mielpeeters/dither/colorpalette"
-	"github.com/mielpeeters/dither/nearneigh"
+	"github.com/mielpeeters/dither/geom"
+	"github.com/mielpeeters/dither/kmeans"
 )
 
-var reset = "\033[0m"
-var cyan = "\033[36m"
-var green = "\033[32m"
-var itallic = "\033[3m"
-var bold = "\033[1m"
-var red = "\033[31m"
-var blink = "\033[5m"
-
-// ErrorColor errorcolor
-type ErrorColor struct {
+type errorColor struct {
 	R int16
 	G int16
 	B int16
@@ -47,9 +35,22 @@ func findMinIndex(arr []float64) int {
 	return minIndex
 }
 
-func createColorPalette(pixels *[][]color.Color, k int, samplefactor int, kmTimes int) colorpalette.ColorPalette {
+const reset = "\033[0m"
+const cyan = "\033[36m"
+const green = "\033[32m"
+const itallic = "\033[3m"
+const bold = "\033[1m"
+const red = "\033[31m"
+const blink = "\033[5m"
+
+// CreateColorPalette creates a new colorpalette using the k-means clustering algorithm
+//
+//   - samplefactor: how many pixles to skip, during sampling for the creatrion of the KMeans problem's cluster points
+//     (higher means faster, because less points to iterate over)
+//   - kmTimes defines the amount of times to start the k-means algorithm with random init, the best output is choosen
+func CreateColorPalette(pixels *[][]color.Color, k int, samplefactor int, kmTimes int) colorpalette.ColorPalette {
 	fmt.Println(cyan + bold + "Creating color palette (knn)..." + reset)
-	pointSet := nearneigh.PointSet{}
+	pointSet := geom.PointSet{}
 	// sample only 1/samplefactor of the pixels
 	for i := 0; i < len((*pixels)); i += samplefactor {
 		for j := 0; j < len((*pixels)[0]); j += samplefactor {
@@ -57,34 +58,23 @@ func createColorPalette(pixels *[][]color.Color, k int, samplefactor int, kmTime
 			pointSet.Points[len(pointSet.Points)-1].ID = i*(len((*pixels))/samplefactor) + j
 		}
 	}
-	var done bool
-	var consecutiveDone int
 
 	var colorPalettes []colorpalette.ColorPalette
 	var errors []float64
 
 	// do the algorithm kmTimes
 	for i := 0; i < kmTimes; i++ {
-		KM := createKMeansProblem(pointSet, k, redMeanDistance)
+		KM := kmeans.CreateKMeansProblem(pointSet, k, geom.RedMeanDistance)
 
-		consecutiveDone = 0
-
-		for consecutiveDone < 2 {
-			done, _ = KM.iterate(0.001)
-			if done {
-				consecutiveDone++
-			} else {
-				consecutiveDone = 0
-			}
-		}
+		KM.Cluster(0.001, 2)
 
 		colorPalette := colorpalette.ColorPalette{}
-		for index := range KM.kMeans.Points {
-			colorPalette.Colors = append(colorPalette.Colors, pointToColorSlice(KM.kMeans.Points[index]))
+		for index := range KM.KMeans.Points {
+			colorPalette.Colors = append(colorPalette.Colors, pointToColorSlice(KM.KMeans.Points[index]))
 		}
 
 		colorPalettes = append(colorPalettes, colorPalette)
-		errors = append(errors, KM.currentError)
+		errors = append(errors, KM.TotalDist())
 	}
 
 	// now select the colorpalette with the lowest error!
@@ -94,7 +84,7 @@ func createColorPalette(pixels *[][]color.Color, k int, samplefactor int, kmTime
 	return colorPalettes[minIndex]
 }
 
-func pointToColorSlice(point nearneigh.Point) []int {
+func pointToColorSlice(point geom.Point) []int {
 	returnValue := []int{}
 
 	for _, value := range point.Coordinates {
@@ -104,23 +94,16 @@ func pointToColorSlice(point nearneigh.Point) []int {
 	return returnValue
 }
 
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-func downscaleNoUpscale(pixels *[][]color.Color, factor int) {
+// Downscale scales the image down with a given integer factor
+func Downscale(pixels *[][]color.Color, factor int) {
 	fmt.Println(cyan + bold + "Downscaling..." + reset)
-	ppixels := *pixels
-	iLen := len(ppixels)
-	jLen := len(ppixels[0])
+	iLen := len(*pixels)
+	jLen := len((*pixels)[0])
 
 	//create new image
-	newImage := make([][]color.Color, roundDown(float64(iLen/factor))) ///float64(factor)))
+	newImage := make([][]color.Color, roundDown(float64(iLen/factor)))
 	for i := 0; i < len(newImage); i++ {
-		newImage[i] = make([]color.Color, roundDown(float64(jLen/factor))) ///float64(factor)))
+		newImage[i] = make([]color.Color, roundDown(float64(jLen/factor)))
 	}
 
 	wg := sync.WaitGroup{}
@@ -135,23 +118,18 @@ func downscaleNoUpscale(pixels *[][]color.Color, factor int) {
 				sumB := float64(0)
 				sumA := float64(0)
 
-				for k := 0; k < factor; k++ {
-					for m := 0; m < factor; m++ {
-						if !(i*factor+k > iLen) {
-							if !(j*factor+k > jLen) {
+				for k := 0; k < factor && i*factor+k <= iLen; k++ {
+					for m := 0; m < factor && j*factor+m <= jLen; m++ {
+						pixel := (*pixels)[i*factor+k][j*factor+m]
 
-								pixel := ppixels[i*factor+k][j*factor+m]
-
-								originalColor, ok := color.RGBAModel.Convert(pixel).(color.RGBA)
-								if !ok {
-									fmt.Println("type conversion went wrong")
-								}
-								sumR += float64(originalColor.R)
-								sumG += float64(originalColor.G)
-								sumB += float64(originalColor.B)
-								sumA += float64(originalColor.A)
-							}
+						originalColor, ok := color.RGBAModel.Convert(pixel).(color.RGBA)
+						if !ok {
+							fmt.Println("type conversion went wrong")
 						}
+						sumR += float64(originalColor.R)
+						sumG += float64(originalColor.G)
+						sumB += float64(originalColor.B)
+						sumA += float64(originalColor.A)
 					}
 				}
 
@@ -174,7 +152,8 @@ func downscaleNoUpscale(pixels *[][]color.Color, factor int) {
 	fmt.Println(green + itallic + "	Done!" + reset)
 }
 
-func upscale(pixels *[][]color.Color, factor int) {
+// Upscale scales the input image up with the given integer factor
+func Upscale(pixels *[][]color.Color, factor int) {
 	fmt.Println(cyan + bold + "Upscaling..." + reset)
 	ppixels := *pixels
 	iLen := len(ppixels)
@@ -210,72 +189,6 @@ func upscale(pixels *[][]color.Color, factor int) {
 	fmt.Println(green + itallic + "	Done!" + reset)
 }
 
-func downscale(pixels *[][]color.Color, factor int) {
-	fmt.Println(cyan + bold + "Downscaling..." + reset)
-	ppixels := *pixels
-	iLen := len(ppixels)
-	jLen := len(ppixels[0])
-
-	//create new image
-	newImage := make([][]color.Color, roundDown(float64(iLen))) ///float64(factor)))
-	for i := 0; i < len(newImage); i++ {
-		newImage[i] = make([]color.Color, roundDown(float64(jLen))) ///float64(factor)))
-	}
-
-	wg := sync.WaitGroup{}
-
-	for i := 0; i < iLen/factor; i++ {
-
-		for j := 0; j < jLen/factor; j++ {
-
-			wg.Add(1)
-			go func(i, j int) {
-				sumR := float64(0)
-				sumG := float64(0)
-				sumB := float64(0)
-				sumA := float64(0)
-
-				for k := 0; k < factor; k++ {
-					for m := 0; m < factor; m++ {
-						if !(i*factor+k > iLen) {
-							if !(j*factor+k > jLen) {
-
-								pixel := ppixels[i*factor+k][j*factor+m]
-
-								originalColor, ok := color.RGBAModel.Convert(pixel).(color.RGBA)
-								if !ok {
-									fmt.Println("type conversion went wrong")
-								}
-								sumR += float64(originalColor.R)
-								sumG += float64(originalColor.G)
-								sumB += float64(originalColor.B)
-								sumA += float64(originalColor.A)
-							}
-						}
-					}
-				}
-
-				col := color.RGBA{
-					uint8(sumR / math.Pow(float64(factor), 2)),
-					uint8(sumG / math.Pow(float64(factor), 2)),
-					uint8(sumB / math.Pow(float64(factor), 2)),
-					uint8(sumA / math.Pow(float64(factor), 2)),
-				}
-
-				for k := 0; k < factor; k++ {
-					for m := 0; m < factor; m++ {
-						newImage[i*factor+k][j*factor+m] = col
-					}
-				}
-				wg.Done()
-			}(i, j)
-		}
-	}
-	wg.Wait()
-	*pixels = newImage
-	fmt.Println(green + itallic + "	Done!" + reset)
-}
-
 func addColorComponents(left int16, right int16) uint8 {
 	result := left + right
 
@@ -290,7 +203,7 @@ func addColorComponents(left int16, right int16) uint8 {
 	return uint8(result)
 }
 
-func addErrorToColor(errorColor ErrorColor, origColor color.Color, factor float64) color.Color {
+func addErrorToColor(errorColor errorColor, origColor color.Color, factor float64) color.Color {
 	orig, ok := color.RGBAModel.Convert(origColor).(color.RGBA)
 	if !ok {
 		fmt.Println("type conversion (to rgba color) went wrong")
@@ -309,40 +222,27 @@ func addErrorToColor(errorColor ErrorColor, origColor color.Color, factor float6
 	return col
 }
 
-func getColorDifference(left color.Color, right color.Color) ErrorColor {
-	leftRGBA := toRGBA(left)
-	rightRGBA := toRGBA(right)
+func getColorDifference(left color.Color, right color.Color) errorColor {
+	leftRGBA := colorpalette.ToRGBA(left)
+	rightRGBA := colorpalette.ToRGBA(right)
 
-	// fmt.Println("differences: ", int8(leftRGBA.R)-int8(rightRGBA.R),
-	// 	int8(leftRGBA.G)-int8(rightRGBA.G),
-	// 	int8(leftRGBA.B)-int8(rightRGBA.B),
-	// 	int8(leftRGBA.A)-int8(rightRGBA.A))
-
-	col := ErrorColor{
-		int16(leftRGBA.R) - int16(rightRGBA.R),
-		int16(leftRGBA.G) - int16(rightRGBA.G),
-		int16(leftRGBA.B) - int16(rightRGBA.B),
-		int16(leftRGBA.A) - int16(rightRGBA.A),
+	col := errorColor{
+		R: int16(leftRGBA.R) - int16(rightRGBA.R),
+		G: int16(leftRGBA.G) - int16(rightRGBA.G),
+		B: int16(leftRGBA.B) - int16(rightRGBA.B),
+		A: int16(leftRGBA.A) - int16(rightRGBA.A),
 	}
 
 	return col
 }
 
-func toRGBA(origColor color.Color) color.RGBA {
-	orig, ok := color.RGBAModel.Convert(origColor).(color.RGBA)
-	if !ok {
-		fmt.Println("type conversion (to rgba color) went wrong")
-	}
-	return orig
-}
-
-func colorToPoint(clr color.Color) nearneigh.Point {
-	clrRGBA := toRGBA(clr)
+func colorToPoint(clr color.Color) geom.Point {
+	clrRGBA := colorpalette.ToRGBA(clr)
 	coordinates := []float32{float32(clrRGBA.R), float32(clrRGBA.G), float32(clrRGBA.B), float32(clrRGBA.A)}
 	//coordinates = RGBAtoHSLA(coordinates)
-	point := nearneigh.Point{
-		coordinates,
-		0,
+	point := geom.Point{
+		Coordinates: coordinates,
+		ID:          0,
 	}
 	return point
 }
@@ -358,7 +258,7 @@ func makeColor(R, G, B, A int) color.Color {
 	return col
 }
 
-func pointToColor(point nearneigh.Point) color.Color {
+func pointToColor(point geom.Point) color.Color {
 	//rgba := HSLAtoRGBA(point.Coordinates)
 	col := color.RGBA{
 		uint8(point.Coordinates[0]),
@@ -370,43 +270,8 @@ func pointToColor(point nearneigh.Point) color.Color {
 	return col
 }
 
-func paletteToNeighbors(palette colorpalette.ColorPalette) []nearneigh.Point {
-	var neighbors []nearneigh.Point
-	for _, clr := range palette.Colors {
-		colour := color.RGBA{
-			uint8(clr[0]),
-			uint8(clr[1]),
-			uint8(clr[2]),
-			uint8(clr[3]),
-		}
-		neighbors = append(neighbors, colorToPoint(colour))
-	}
-	return neighbors
-}
-
-func squaresDistance(pnt1 nearneigh.Point, pnt2 nearneigh.Point) float64 {
-	var dist float64
-	for index := range pnt1.Coordinates {
-		dist += math.Pow(float64(pnt1.Coordinates[index]-pnt2.Coordinates[index]), 2)
-	}
-
-	return dist
-}
-
-func redMeanDistance(pnt1, pnt2 nearneigh.Point) float64 {
-	// only to use with colors!
-	redMean := (pnt1.Coordinates[0] + pnt2.Coordinates[0]) / 2
-
-	output := float64(2+redMean/256) * math.Pow(float64(pnt1.Coordinates[0]-pnt2.Coordinates[0]), 2)
-
-	output += 4 * math.Pow(float64(pnt1.Coordinates[1]-pnt2.Coordinates[1]), 2)
-
-	output += float64(2+(255-redMean)/256) * math.Pow(float64(pnt1.Coordinates[2]-pnt2.Coordinates[2]), 2)
-
-	return output
-}
-
-func floydSteinbergDithering(pixels *[][]color.Color, palette ColorPalette, upscale, X, Y int) (*[][]color.Color, *image.Paletted) {
+// FloydSteinbergDithering applies the FS dithering effect
+func FloydSteinbergDithering(pixels *[][]color.Color, palette colorpalette.ColorPalette, upscale, X, Y int) (*[][]color.Color, *image.Paletted) {
 	fmt.Println(cyan + bold + "Starting dithering process!" + reset)
 
 	yLen := len(*pixels)
@@ -416,7 +281,7 @@ func floydSteinbergDithering(pixels *[][]color.Color, palette ColorPalette, upsc
 	lowRight := image.Point{yLen, xLen}
 	r := image.Rectangle{upLeft, lowRight}
 
-	p := colorPaletteToPalette(palette)
+	p := palette.ToPalette()
 
 	newImage := image.NewPaletted(r, p)
 
@@ -456,168 +321,4 @@ func floydSteinbergDithering(pixels *[][]color.Color, palette ColorPalette, upsc
 
 	// pixels = &newPixels
 	return pixels, newImage
-}
-
-func printRGBAColor(col color.RGBA, title string) {
-	fmt.Println(title)
-	fmt.Println("R: ", col.R)
-	fmt.Println("G: ", col.G)
-	fmt.Println("B: ", col.B)
-	fmt.Println("A: ", col.A)
-}
-
-func printErrorColor(col ErrorColor, title string) {
-	fmt.Println(title)
-	fmt.Println("R: ", col.R)
-	fmt.Println("G: ", col.G)
-	fmt.Println("B: ", col.B)
-	fmt.Println("A: ", col.A)
-}
-
-func openImage(path string) (image.Image, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		fmt.Println(err)
-		return nil, err
-	}
-
-	defer f.Close()
-
-	img, _, err := image.Decode(f)
-	if err != nil {
-		fmt.Println("Decoding error:", err.Error())
-		return nil, err
-	}
-	return img, nil
-}
-
-// imageToPixels converts an image.Image instance
-// into a column-major array
-//
-// more specifically, a pointer to a [][]color.Color array is returned,
-// indexed like so: color @ (x, y) -> (*return)[x][y]
-// where x indexes the outer array, selecting one column, and y indexes those arrays
-func imageToPixels(img image.Image) *[][]color.Color {
-	size := img.Bounds().Size()
-	var pixels [][]color.Color
-	// put pixels into two dimensional array
-	// for every x value, store an array
-	for i := 0; i < size.X; i++ {
-		var y []color.Color
-		for j := 0; j < size.Y; j++ {
-			y = append(y, img.At(i, j))
-		}
-		pixels = append(pixels, y)
-	}
-
-	return &pixels
-}
-
-func pixelsToImage(pixels *[][]color.Color) *image.RGBA {
-	fmt.Println(cyan + bold + "Transforming pixels to an image!" + reset)
-	defer fmt.Println(green + itallic + "	Done!" + reset)
-
-	rect := image.Rect(0, 0, len(*pixels), len((*pixels)[0]))
-	nImg := image.NewRGBA(rect)
-
-	wg := sync.WaitGroup{}
-
-	for x := 0; x < len(*pixels); x++ {
-		wg.Add(1)
-		go func(x int) {
-			for y := 0; y < len((*pixels)[0]); y++ {
-				if (*pixels)[x] == nil {
-					continue
-				}
-				p := (*pixels)[x][y]
-				if p == nil {
-					continue
-				}
-				original, ok := color.RGBAModel.Convert(p).(color.RGBA)
-				if ok {
-					nImg.Set(x, y, original)
-				}
-			}
-
-			wg.Done()
-		}(x)
-	}
-
-	wg.Wait()
-
-	return nImg
-}
-
-func savePNG(img image.Image, name string) {
-	fmt.Println(cyan + bold + "Saving the PNG!" + reset)
-	defer fmt.Println(green + itallic + "	Done!" + reset)
-
-	f, err := os.Create(name + ".png")
-	if err != nil {
-		fmt.Println("couldn't save")
-	}
-	defer f.Close()
-
-	// Encode to `PNG` with `DefaultCompression` level
-	// then save to file
-	err = png.Encode(f, img)
-	if err != nil {
-		fmt.Println("couldn't save")
-	}
-}
-
-func saveGIF(img image.Image, name string) {
-	fmt.Println(cyan + bold + "Saving the GIF!" + reset)
-	defer fmt.Println(green + itallic + "	Done!" + reset)
-
-	f, err := os.Create(name + ".gif")
-	if err != nil {
-		fmt.Println("couldn't save")
-	}
-	defer f.Close()
-
-	err = gif.Encode(f, img, nil)
-	if err != nil {
-		fmt.Println("Couldn't save GIF.")
-	}
-}
-
-func saveJPEG(img image.Image, name string, quality int) {
-	f, err := os.Create(name + ".jpeg")
-	if err != nil {
-		fmt.Println("couldn't save")
-	}
-	defer f.Close()
-
-	// Encode to `PNG` with `DefaultCompression` level
-	// then save to file
-
-	opt := jpeg.Options{
-		Quality: quality,
-	}
-
-	err = jpeg.Encode(f, img, &opt)
-
-	if err != nil {
-		fmt.Println("couldn't save")
-	}
-}
-
-func colorPaletteToPalette(colorpalette ColorPalette) color.Palette {
-	colors := []color.Color{}
-	var paletteColor color.Color
-
-	for i := 0; i < len(colorpalette.Colors); i++ {
-		paletteColor = color.RGBA{
-			uint8(colorpalette.Colors[i][0]),
-			uint8(colorpalette.Colors[i][1]),
-			uint8(colorpalette.Colors[i][2]),
-			uint8(colorpalette.Colors[i][3]),
-		}
-		colors = append(colors, paletteColor)
-	}
-
-	palette := colors
-
-	return palette
 }

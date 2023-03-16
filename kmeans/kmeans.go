@@ -1,38 +1,32 @@
-package kmeans 
+package kmeans
 
 import (
 	"math"
 	"math/rand"
 	"sync"
 	"time"
+
+	"github.com/mielpeeters/dither/geom"
 )
 
-// KMeansProblem is a K Means clustering Problem struct
-type KMeansProblem struct {
-	kMeans         pointSet //The estimated cluster centers (at this step)
-	points         pointSet //The set of Points with kardinality n to subset into k clusters
-	k              int      //The dimension of this k-means problem (amount of clusters)
-	iterationStep  int      //The iteration step
-	clusters       []pointSet
+// Clustering is a K Means clustering struct
+type Clustering struct {
+	KMeans         geom.PointSet //The estimated cluster centers (at this step)
+	points         geom.PointSet //The set of Points with kardinality n to subset into k clusters
+	k              int           //The dimension of this k-means problem (amount of clusters)
+	Clusters       []geom.PointSet
 	maxDist        float64 //Maximum distance within the hyperbox containing all points
-	distanceMetric func(pnt1, pnt2 Point) float64
-	currentError   float64
-}
-
-// Bounds is a struct for lower - upper bounds
-type Bounds struct {
-	lower float32
-	upper float32
+	distanceMetric func(pnt1, pnt2 geom.Point) float64
 }
 
 // ClosestMeanIndex returns the index within the KM.kMeans slice
 // of that mean which is closest to the given point, by index pointIndex (stored in KM.points)
-func ClosestMeanIndex(KM *KMeansProblem, pointIndex int) int {
+func ClosestMeanIndex(KM *Clustering, pointIndex int) int {
 	var minDist float64
 	var bestIndex int
-	for meanIndex := range KM.kMeans.Points { //check all means
+	for meanIndex := range KM.KMeans.Points { //check all means
 
-		dist := KM.distanceMetric(KM.points.Points[pointIndex], KM.kMeans.Points[meanIndex])
+		dist := KM.distanceMetric(KM.points.Points[pointIndex], KM.KMeans.Points[meanIndex])
 
 		if meanIndex == 0 {
 			minDist = dist
@@ -47,24 +41,24 @@ func ClosestMeanIndex(KM *KMeansProblem, pointIndex int) int {
 }
 
 // assignment performs the assignment step of the KMeans algorithm: assigning points to clusters.
-func (KM *KMeansProblem) assignment() {
+func (KM *Clustering) assignment() {
 	wg := sync.WaitGroup{}
 	lock := sync.Mutex{}
 
-	// try to divide in 8 chunks, 9 also possible
-	pointChunks := KM.points.chunkPoints(len(KM.points.Points) / 16)
+	// try to divide in 8 chunks
+	pointChunks := KM.points.ChunkPoints(int(math.Ceil(float64(len(KM.points.Points)) / 8.0)))
 
 	startIndex := 0
 
 	// reset clusters
-	KM.clusters = make([]pointSet, KM.k)
+	KM.Clusters = make([]geom.PointSet, KM.k)
 
 	// handle each chunk in parallel
 	for _, points := range pointChunks {
 		wg.Add(1)
 
-		go func(points []Point, startIndex int) {
-			newClusters := make([]pointSet, KM.k)
+		go func(points []geom.Point, startIndex int) {
+			newClusters := make([]geom.PointSet, KM.k)
 
 			for i, point := range points {
 				bestIndex := ClosestMeanIndex(KM, startIndex+i)
@@ -72,8 +66,8 @@ func (KM *KMeansProblem) assignment() {
 			}
 
 			lock.Lock()
-			for cluster := range KM.clusters {
-				KM.clusters[cluster].Points = append(KM.clusters[cluster].Points, newClusters[cluster].Points...)
+			for cluster := range KM.Clusters {
+				KM.Clusters[cluster].Points = append(KM.Clusters[cluster].Points, newClusters[cluster].Points...)
 			}
 			lock.Unlock()
 
@@ -86,24 +80,24 @@ func (KM *KMeansProblem) assignment() {
 }
 
 // update performs the update step in the KMeans algorithm: update the means to be the mean of their clusters
-func (KM *KMeansProblem) update() float64 {
+func (KM *Clustering) update() float64 {
 	// calculating the means
 	wg := sync.WaitGroup{}
 	lock := sync.Mutex{}
 
 	changes := []float64{}
 
-	for clusterID := range KM.clusters {
+	for clusterID := range KM.Clusters {
 		wg.Add(1)
 		go func(clusterID int) {
-			old := KM.kMeans.Points[clusterID]
-			mean := (&KM.clusters[clusterID]).mean()
+			old := KM.KMeans.Points[clusterID]
+			mean := (&KM.Clusters[clusterID]).Mean()
 			if len(mean.Coordinates) == 0 {
-				KM.kMeans.Points[clusterID] = createRandomStart(KM.points, 1).Points[0] //bad choice, try another one
+				KM.KMeans.Points[clusterID] = createRandomStart(KM.points, 1).Points[0] //bad choice, try another one
 			} else {
-				KM.kMeans.Points[clusterID] = mean
+				KM.KMeans.Points[clusterID] = mean
 			}
-			change := KM.distanceMetric(old, KM.kMeans.Points[clusterID])
+			change := KM.distanceMetric(old, KM.KMeans.Points[clusterID])
 			lock.Lock()
 			changes = append(changes, change)
 			lock.Unlock()
@@ -120,20 +114,20 @@ func (KM *KMeansProblem) update() float64 {
 	return max
 }
 
-// totalDist returns the total distance from points to their assigned cluster mean
-func (KM *KMeansProblem) totalDist() float64 {
+// TotalDist returns the total distance from points to their assigned cluster mean
+func (KM *Clustering) TotalDist() float64 {
 
 	var sum float64
 
 	wg := sync.WaitGroup{}
 	mutex := sync.Mutex{}
 
-	for meanIndex := range KM.kMeans.Points { // iterate over all means
+	for meanIndex := range KM.KMeans.Points { // iterate over all means
 		wg.Add(1)
-		go func(points []Point, meanIndex int) {
+		go func(points []geom.Point, meanIndex int) {
 			localSum := 0.0
 			for pointIndex := range points {
-				localSum += KM.distanceMetric(KM.kMeans.Points[meanIndex], KM.clusters[meanIndex].Points[pointIndex])
+				localSum += KM.distanceMetric(KM.KMeans.Points[meanIndex], KM.Clusters[meanIndex].Points[pointIndex])
 			}
 
 			mutex.Lock()
@@ -141,7 +135,7 @@ func (KM *KMeansProblem) totalDist() float64 {
 			mutex.Unlock()
 
 			wg.Done()
-		}(KM.clusters[meanIndex].Points, meanIndex)
+		}(KM.Clusters[meanIndex].Points, meanIndex)
 	}
 
 	wg.Wait()
@@ -150,24 +144,22 @@ func (KM *KMeansProblem) totalDist() float64 {
 
 // iterate performs one iteration of the KMeans algorithm
 //
-// returns:
+// Returns:
 //   - whether accuracy was met, as a bool
 //   - the achieved change, maxChange / KM.maxDist, as a percentage (float)
-func (KM *KMeansProblem) iterate(accuracy float64) (bool, float64) {
+func (KM *Clustering) iterate(accuracy float64) bool {
 	KM.assignment()
 	maxChange := KM.update()
 
-	KM.currentError = KM.totalDist()
-
-	return (maxChange * 100 / KM.maxDist) < accuracy, maxChange * 100 / KM.maxDist
+	return (maxChange * 100 / KM.maxDist) < accuracy
 }
 
-func createRandomStart(points pointSet, k int) pointSet {
+func createRandomStart(points geom.PointSet, k int) geom.PointSet {
 	//Get bounds so that the random starting points will at least lie in a reasonable region
 	bounds := (&points).LowerAndUpperBounds()
 
-	returnValue := pointSet{
-		[]Point{},
+	returnValue := geom.PointSet{
+		Points: []geom.Point{},
 	}
 
 	if len(bounds) < 1 {
@@ -178,53 +170,73 @@ func createRandomStart(points pointSet, k int) pointSet {
 	rand.Seed(time.Now().UnixNano())
 
 	//set the dimension
-	dim := points.Points[0].dimension()
+	dim := points.Points[0].Dimension()
 
 	var low float32
 	var upp float32
 	for i := 0; i < k; i++ {
-		var currentPoint Point
+		var currentPoint geom.Point
 		for dimNum := 0; dimNum < dim; dimNum++ {
-			low = bounds[dimNum].lower                                                                //lower bound for this coordinate number
-			upp = bounds[dimNum].upper                                                                //upper bound for this coordinate number
+			low = bounds[dimNum].Lower                                                                //lower bound for this coordinate number
+			upp = bounds[dimNum].Upper                                                                //upper bound for this coordinate number
 			currentPoint.Coordinates = append(currentPoint.Coordinates, rand.Float32()*(upp-low)+low) //random value between corr. bounds
 		}
-		returnValue.Points = append(returnValue.Points, currentPoint) // add the fully random point to the PointSet
+		returnValue.Points = append(returnValue.Points, currentPoint) // add the fully random point to the geom.PointSet
 	}
 
 	return returnValue
 }
 
-func createKMeansProblem(points pointSet, k int, distanceMetric func(pnt1, pnt2 Point) float64) KMeansProblem {
+// CreateKMeansProblem generates a new k-means clustering problem.
+//
+// points is the PointSet that contains the clusters that are to be found. k is the estimated amount of clusters.
+// distanceMetric is the function to be used for determining "closeness"
+func CreateKMeansProblem(points geom.PointSet, k int, distanceMetric func(pnt1, pnt2 geom.Point) float64) Clustering {
 	kMeans := createRandomStart(points, k)
 
-	//Craete the initial clusters, consisting of just the random means in k different PointSets
-	initClusters := make([]pointSet, k)
+	//Craete the initial clusters, consisting of just the random means in k different geom.PointSets
+	initClusters := make([]geom.PointSet, k)
 
 	bounds := (&points).LowerAndUpperBounds()
 
 	// point 1 has the lowest coordinate value of all points
 	// point 2 has the highest coordinate value of all points
-	point1 := Point{}
-	point2 := Point{}
+	point1 := geom.Point{}
+	point2 := geom.Point{}
 
-	for dim := 0; dim < points.Points[0].dimension(); dim++ {
-		point1.Coordinates = append(point1.Coordinates, bounds[dim].lower)
-		point2.Coordinates = append(point2.Coordinates, bounds[dim].upper)
+	for dim := 0; dim < points.Points[0].Dimension(); dim++ {
+		point1.Coordinates = append(point1.Coordinates, bounds[dim].Lower)
+		point2.Coordinates = append(point2.Coordinates, bounds[dim].Upper)
 	}
 
 	maxDist := distanceMetric(point1, point2)
 
-	returnValue := KMeansProblem{
+	returnValue := Clustering{
 		kMeans,
 		points,
 		k,
-		0,
 		initClusters,
 		maxDist,
 		distanceMetric,
-		0,
 	}
 
 	return returnValue
+}
+
+// Cluster performs the clustering algorithm, with specified parameters for accuracy
+//
+//   - accuracy: the amount of relative change below which the algorithm is considered to have converged
+//   - consecutiveTimes: the amount of times the accuracy has to be met consecutively for convergence
+func (KM *Clustering) Cluster(accuracy float64, consecutiveTimes int) {
+	var done bool
+	var consecutiveDone int
+
+	for consecutiveDone < consecutiveTimes {
+		done = KM.iterate(accuracy)
+		if done {
+			consecutiveDone++
+		} else {
+			consecutiveDone = 0
+		}
+	}
 }

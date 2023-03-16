@@ -14,7 +14,8 @@ type ColorPalette struct {
 	Colors [][]int `json:"colors"`
 }
 
-func getPalettesFromJSON(jsonFileName string) []ColorPalette {
+// GetPalettesFromJSON returns a slice of ColorPalettes after reading them from a JSON file.
+func GetPalettesFromJSON(jsonFileName string) []ColorPalette {
 	file, _ := ioutil.ReadFile(jsonFileName)
 
 	data := []ColorPalette{}
@@ -24,7 +25,10 @@ func getPalettesFromJSON(jsonFileName string) []ColorPalette {
 	return data
 }
 
-func getPaletteWithName(name string, palettes []ColorPalette) ColorPalette {
+// GetPaletteWithName returns a specific from a slice of ColorPalette.
+// The palette is specified by name.
+// If there is none that matches, a black ColorPalette is returned.
+func GetPaletteWithName(name string, palettes []ColorPalette) ColorPalette {
 	for _, pltt := range palettes {
 		if pltt.Name == name {
 			return pltt
@@ -41,7 +45,8 @@ func getPaletteWithName(name string, palettes []ColorPalette) ColorPalette {
 	return val
 }
 
-func paletteToJSONFile(palette ColorPalette, jsonFileName string) {
+// ToJSONFile writes the given ColorPalette out to the specified path, as a JSON file (formatted).
+func (palette *ColorPalette) ToJSONFile(jsonFileName string) {
 	output, err := json.MarshalIndent(palette, "", "  ")
 	if err != nil {
 		fmt.Println(err)
@@ -55,29 +60,8 @@ func paletteToJSONFile(palette ColorPalette, jsonFileName string) {
 	}
 }
 
-func paletteToImage(palette ColorPalette, fileName string) {
-	pixels := make([][]color.Color, len(palette.Colors))
-
-	for i := 0; i < len(palette.Colors); i++ {
-		pixels[i] = make([]color.Color, 1)
-	}
-
-	for i := 0; i < len(palette.Colors); i++ {
-		col := color.RGBA{
-			uint8(palette.Colors[i][0]),
-			uint8(palette.Colors[i][1]),
-			uint8(palette.Colors[i][2]),
-			uint8(palette.Colors[i][3]),
-		}
-		pixels[i][0] = col
-	}
-
-	upscale(&pixels, 10)
-	image := pixelsToImage(&pixels)
-	savePNG(image, fileName)
-}
-
-func convRGBAtoHSLA(rgba []float64) []float64 {
+// ConvRGBAtoHSLA converts between RGBA and HSLA color formats
+func ConvRGBAtoHSLA(rgba []float64) []float64 {
 	r := float64(rgba[0]) / 255.0
 	g := float64(rgba[1]) / 255.0
 	b := float64(rgba[2]) / 255.0
@@ -120,10 +104,11 @@ func convRGBAtoHSLA(rgba []float64) []float64 {
 	return output
 }
 
-func convHSLAtoRGBA(hsla []float64) []float64 {
+// ConvHSLAtoRGBA converts between HSLA and RGBA color formats
+func ConvHSLAtoRGBA(hsla []float64) []float64 {
 	h := hsla[0]
-	s := hsla[1] / 100
-	l := hsla[2] / 100
+	s := hsla[1] / 100.0
+	l := hsla[2] / 100.0
 	a := hsla[3]
 
 	c := (1 - math.Abs(2*l-1)) * s
@@ -165,4 +150,32 @@ func convHSLAtoRGBA(hsla []float64) []float64 {
 	output := []float64{r, g, b, a}
 
 	return output
+}
+
+// ToPalette converts between this custom ColorPalette and the
+// Go standard library color.Palette type struct
+func (palette *ColorPalette) ToPalette() color.Palette {
+	colors := []color.Color{}
+	var paletteColor color.Color
+
+	for i := 0; i < len(palette.Colors); i++ {
+		paletteColor = color.RGBA{
+			uint8(palette.Colors[i][0]),
+			uint8(palette.Colors[i][1]),
+			uint8(palette.Colors[i][2]),
+			uint8(palette.Colors[i][3]),
+		}
+		colors = append(colors, paletteColor)
+	}
+
+	return colors
+}
+
+// ToRGBA converts some color.Color into color.RGBA
+func ToRGBA(origColor color.Color) color.RGBA {
+	orig, ok := color.RGBAModel.Convert(origColor).(color.RGBA)
+	if !ok {
+		fmt.Println("type conversion (to rgba color) went wrong")
+	}
+	return orig
 }
