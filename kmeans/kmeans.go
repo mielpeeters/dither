@@ -3,6 +3,7 @@ package kmeans
 import (
 	"math"
 	"math/rand"
+	"runtime"
 	"sync"
 	"time"
 
@@ -45,8 +46,9 @@ func (KM *Clustering) assignment() {
 	wg := sync.WaitGroup{}
 	lock := sync.Mutex{}
 
-	// try to divide in 8 chunks
-	pointChunks := KM.points.ChunkPoints(int(math.Ceil(float64(len(KM.points.Points)) / 8.0)))
+	workers := runtime.GOMAXPROCS(0)
+	// try to divide amongst the amount of workers
+	pointChunks := KM.points.ChunkPoints(int(math.Ceil(float64(len(KM.points.Points)) / float64(workers))))
 
 	startIndex := 0
 

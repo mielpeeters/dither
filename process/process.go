@@ -21,9 +21,37 @@ type errorColor struct {
 // ErrorDiffuser represents one spreaded error, with parameters
 // x_offset, y_offset, and the fraction of the error to divide
 type ErrorDiffuser struct {
-	xOffset  int
-	yOffset  int
+	x        int
+	y        int
 	fraction float64
+}
+
+// ErrorDiffusionMatrix is the matrix that is used to spread the errors
+type ErrorDiffusionMatrix []ErrorDiffuser
+
+// FloydSteinBerg is the EDM used for FS dithering
+var FloydSteinBerg = *makeFloydSteinBerg()
+
+// Simple is the EDM used for simple 2d dithering
+var Simple = *makeSimpleDiffuser()
+
+// Stucki is the EDM used for Stucki dithering
+var Stucki = *makeStuckiDiffuser()
+
+// JarvisJudiceNinke is the EDM used for JarvisJudiceNinke dithering
+var JarvisJudiceNinke = ErrorDiffusionMatrix{
+	{1, 0, 7.0 / 48.0},
+	{2, 0, 5.0 / 48.0},
+	{-2, 1, 3.0 / 48.0},
+	{-1, 1, 5.0 / 48.0},
+	{0, 1, 7.0 / 48.0},
+	{1, 1, 5.0 / 48.0},
+	{2, 1, 3.0 / 48.0},
+	{-2, 2, 1.0 / 48.0},
+	{-1, 2, 3.0 / 48.0},
+	{0, 2, 5.0 / 48.0},
+	{1, 2, 3.0 / 48.0},
+	{2, 2, 1.0 / 48.0},
 }
 
 func roundDown(number float64) int {
@@ -278,7 +306,7 @@ func ApplyErrorDiffusion(pixels *[][]color.Color, palette colorpalette.ColorPale
 
 			for _, dif := range *diffusers {
 				if dif.checkRange(x, y, xLen, yLen) {
-					(*pixels)[y+dif.yOffset][x+dif.xOffset] = addErrorToColor(err, (*pixels)[y+dif.yOffset][x+dif.xOffset], dif.fraction)
+					(*pixels)[y+dif.y][x+dif.x] = addErrorToColor(err, (*pixels)[y+dif.y][x+dif.x], dif.fraction)
 				}
 			}
 		}
@@ -289,123 +317,123 @@ func ApplyErrorDiffusion(pixels *[][]color.Color, palette colorpalette.ColorPale
 
 func (dif *ErrorDiffuser) checkRange(x, y, xLen, yLen int) bool {
 
-	if !((0 <= x+dif.xOffset) && (x+dif.xOffset < xLen)) {
+	if !((0 <= x+dif.x) && (x+dif.x < xLen)) {
 		return false
 	}
-	if !((0 <= y+dif.yOffset) && (y+dif.yOffset < yLen)) {
+	if !((0 <= y+dif.y) && (y+dif.y < yLen)) {
 		return false
 	}
 	return true
 }
 
-// FloydSteinBerg returns the correct error diffusion matrix struct for usage in ApplyErrorDiffusion
-func FloydSteinBerg() *[]ErrorDiffuser {
-	diffusers := make([]ErrorDiffuser, 0)
+// makeFloydSteinBerg returns the correct error diffusion matrix struct for usage in ApplyErrorDiffusion
+func makeFloydSteinBerg() *ErrorDiffusionMatrix {
+	diffusers := make(ErrorDiffusionMatrix, 0)
 
 	diffusers = append(diffusers, ErrorDiffuser{
-		xOffset:  1,
-		yOffset:  0,
+		x:        1,
+		y:        0,
 		fraction: 7.0 / 16.0,
 	})
 	diffusers = append(diffusers, ErrorDiffuser{
-		xOffset:  -1,
-		yOffset:  1,
+		x:        -1,
+		y:        1,
 		fraction: 3.0 / 16.0,
 	})
 	diffusers = append(diffusers, ErrorDiffuser{
-		xOffset:  0,
-		yOffset:  1,
+		x:        0,
+		y:        1,
 		fraction: 5.0 / 16.0,
 	})
 	diffusers = append(diffusers, ErrorDiffuser{
-		xOffset:  1,
-		yOffset:  1,
+		x:        1,
+		y:        1,
 		fraction: 1.0 / 16.0,
 	})
 
 	return &diffusers
 }
 
-// SimpleDiffuser returns the simplest diffusers possible
-func SimpleDiffuser() *[]ErrorDiffuser {
-	diffusers := make([]ErrorDiffuser, 0)
+// makeSimpleDiffuser returns the simplest diffusers possible
+func makeSimpleDiffuser() *ErrorDiffusionMatrix {
+	diffusers := make(ErrorDiffusionMatrix, 0)
 
 	diffusers = append(diffusers, ErrorDiffuser{
-		xOffset:  1,
-		yOffset:  0,
+		x:        1,
+		y:        0,
 		fraction: 1.0 / 2.0,
 	})
 	diffusers = append(diffusers, ErrorDiffuser{
-		xOffset:  0,
-		yOffset:  1,
+		x:        0,
+		y:        1,
 		fraction: 1.0 / 2.0,
 	})
 
 	return &diffusers
 }
 
-// StuckiDiffuser returns the simplest diffusers possible
-func StuckiDiffuser() *[]ErrorDiffuser {
-	diffusers := make([]ErrorDiffuser, 0)
+// makeStuckiDiffuser returns the simplest diffusers possible
+func makeStuckiDiffuser() *ErrorDiffusionMatrix {
+	diffusers := make(ErrorDiffusionMatrix, 0)
 
 	diffusers = append(diffusers, ErrorDiffuser{
-		xOffset:  1,
-		yOffset:  0,
+		x:        1,
+		y:        0,
 		fraction: 8.0 / 42.0,
 	})
 	diffusers = append(diffusers, ErrorDiffuser{
-		xOffset:  2,
-		yOffset:  0,
+		x:        2,
+		y:        0,
 		fraction: 4.0 / 42.0,
 	})
 	diffusers = append(diffusers, ErrorDiffuser{
-		xOffset:  -2,
-		yOffset:  1,
+		x:        -2,
+		y:        1,
 		fraction: 2.0 / 42.0,
 	})
 	diffusers = append(diffusers, ErrorDiffuser{
-		xOffset:  -1,
-		yOffset:  4,
+		x:        -1,
+		y:        4,
 		fraction: 1.0 / 42.0,
 	})
 	diffusers = append(diffusers, ErrorDiffuser{
-		xOffset:  0,
-		yOffset:  1,
+		x:        0,
+		y:        1,
 		fraction: 8.0 / 42.0,
 	})
 	diffusers = append(diffusers, ErrorDiffuser{
-		xOffset:  1,
-		yOffset:  1,
+		x:        1,
+		y:        1,
 		fraction: 4.0 / 42.0,
 	})
 	diffusers = append(diffusers, ErrorDiffuser{
-		xOffset:  2,
-		yOffset:  1,
+		x:        2,
+		y:        1,
 		fraction: 2.0 / 42.0,
 	})
 	diffusers = append(diffusers, ErrorDiffuser{
-		xOffset:  -2,
-		yOffset:  2,
+		x:        -2,
+		y:        2,
 		fraction: 1.0 / 42.0,
 	})
 	diffusers = append(diffusers, ErrorDiffuser{
-		xOffset:  -1,
-		yOffset:  2,
+		x:        -1,
+		y:        2,
 		fraction: 2.0 / 42.0,
 	})
 	diffusers = append(diffusers, ErrorDiffuser{
-		xOffset:  0,
-		yOffset:  2,
+		x:        0,
+		y:        2,
 		fraction: 4.0 / 42.0,
 	})
 	diffusers = append(diffusers, ErrorDiffuser{
-		xOffset:  1,
-		yOffset:  2,
+		x:        1,
+		y:        2,
 		fraction: 2.0 / 42.0,
 	})
 	diffusers = append(diffusers, ErrorDiffuser{
-		xOffset:  2,
-		yOffset:  2,
+		x:        2,
+		y:        2,
 		fraction: 1.0 / 42.0,
 	})
 
