@@ -48,7 +48,7 @@ func main() {
     palette = colorpalette.Create(pixels, amountOfColors, sampleFactor, knnRuns)
 
     // apply dithering to the image
-    paletted := process.ApplyErrorDiffusion(pixels, palette, process.FloydSteinBerg)
+    paletted := process.ApplyErrorDiffusion(pixels, palette, &process.FloydSteinBerg)
 
     // save the image as a GIF (efficient for paletted images)
     imgutil.SaveGIF(paletted, "path/to/outputImage.gif")
