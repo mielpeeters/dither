@@ -281,7 +281,7 @@ func FloydSteinbergDithering(pixels *[][]color.Color, palette colorpalette.Color
 
 // ApplyErrorDiffusion will apply the error diffusion dithering, with the provided slice of
 // error spreading ErrorDiffuser elements.
-func ApplyErrorDiffusion(pixels *[][]color.Color, palette colorpalette.ColorPalette, diffusers *[]ErrorDiffuser) *image.Paletted {
+func ApplyErrorDiffusion(pixels *[][]color.Color, palette colorpalette.ColorPalette, diffusers *ErrorDiffusionMatrix) *image.Paletted {
 	yLen := len(*pixels)
 	xLen := len((*pixels)[0])
 
