@@ -34,18 +34,15 @@ func main() {
     return
     }
 
-    // convert the input into a slice of slices (2d array) of pixels 
-    pixels := imgutil.ImageToPixels(img)
-
     // scale the image down with a given scale
     scale := 10
-    process.Downscale(pixels, scale)
+    scaledImage := process.Downscale(img, scale)
 
     // get the palette in which to create the new image
     amountOfColors := 5
-    sampleFactor := 4
-    knnRuns := 3
-    palette = colorpalette.Create(pixels, amountOfColors, sampleFactor, knnRuns)
+    colorpalette.SampleFactor = 2
+	colorpalette.KMTimes = 4
+    palette = colorpalette.Create(pixels, amountOfColors)
 
     // apply dithering to the image
     paletted := process.ApplyErrorDiffusion(pixels, palette, &process.FloydSteinBerg)
@@ -54,4 +51,6 @@ func main() {
     imgutil.SaveGIF(paletted, "path/to/outputImage.gif")
 }
 ``` 
-Note that some of the functions used here are not optimal yet, and the usage will be made simpler in the future.
+
+## License
+This module is licensed under version 3 of the GNU General Public License.

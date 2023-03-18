@@ -45,9 +45,6 @@ func ImageToPixels(img image.Image) *[][]color.Color {
 
 // PixelsToImage creates an image.RGBA from the given slice of color.Color slices
 func PixelsToImage(pixels *[][]color.Color) *image.RGBA {
-	fmt.Println(cyan + bold + "Transforming pixels to an image!" + reset)
-	defer fmt.Println(green + itallic + "	Done!" + reset)
-
 	rect := image.Rect(0, 0, len(*pixels), len((*pixels)[0]))
 	nImg := image.NewRGBA(rect)
 
@@ -99,9 +96,6 @@ func OpenImage(path string) (image.Image, error) {
 
 // SavePNG saves img at path as a PNG file
 func SavePNG(img image.Image, name string) {
-	fmt.Println(cyan + bold + "Saving the PNG!" + reset)
-	defer fmt.Println(green + itallic + "	Done!" + reset)
-
 	f, err := os.Create(name)
 	if err != nil {
 		fmt.Println("couldn't save")
@@ -118,9 +112,6 @@ func SavePNG(img image.Image, name string) {
 
 // SaveGIF saves img at path as a GIF file
 func SaveGIF(img image.Image, name string) {
-	fmt.Println(cyan + bold + "Saving the GIF!" + reset)
-	defer fmt.Println(green + itallic + "	Done!" + reset)
-
 	f, err := os.Create(name)
 	if err != nil {
 		fmt.Println("couldn't save")

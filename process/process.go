@@ -5,10 +5,9 @@ import (
 	"image"
 	"image/color"
 	"math"
-	"sync"
 
-	"github.com/mielpeeters/dither/colorpalette"
 	"github.com/mielpeeters/dither/geom"
+	"golang.org/x/image/draw"
 )
 
 type errorColor struct {
@@ -24,6 +23,14 @@ type ErrorDiffuser struct {
 	x        int
 	y        int
 	fraction float64
+}
+
+// AdjustableImage is an interface to define images that implement the .Set() function
+type AdjustableImage interface {
+	ColorModel() color.Model
+	Bounds() image.Rectangle
+	RGBAAt(x, y int) color.RGBA
+	Set(x, y int, c color.Color)
 }
 
 // ErrorDiffusionMatrix is the matrix that is used to spread the errors
@@ -67,98 +74,19 @@ const red = "\033[31m"
 const blink = "\033[5m"
 
 // Downscale scales the image down with a given integer factor
-func Downscale(pixels *[][]color.Color, factor int) {
-	fmt.Println(cyan + bold + "Downscaling..." + reset)
-	iLen := len(*pixels)
-	jLen := len((*pixels)[0])
+func Downscale(img image.Image, factor int) *image.RGBA {
+	dst := image.NewRGBA(image.Rect(0, 0, img.Bounds().Max.X/factor, img.Bounds().Max.Y/factor))
+	draw.NearestNeighbor.Scale(dst, dst.Rect, img, img.Bounds(), draw.Over, nil)
 
-	//create new image
-	newImage := make([][]color.Color, roundDown(float64(iLen/factor)))
-	for i := 0; i < len(newImage); i++ {
-		newImage[i] = make([]color.Color, roundDown(float64(jLen/factor)))
-	}
-
-	wg := sync.WaitGroup{}
-
-	for i := 0; i < iLen/factor; i++ {
-		wg.Add(1) //do each row in parallel
-		go func(i int) {
-			for j := 0; j < jLen/factor; j++ {
-
-				sumR := float64(0)
-				sumG := float64(0)
-				sumB := float64(0)
-				sumA := float64(0)
-
-				for k := 0; k < factor && i*factor+k <= iLen; k++ {
-					for m := 0; m < factor && j*factor+m <= jLen; m++ {
-						pixel := (*pixels)[i*factor+k][j*factor+m]
-
-						originalColor, ok := color.RGBAModel.Convert(pixel).(color.RGBA)
-						if !ok {
-							fmt.Println("type conversion went wrong")
-						}
-						sumR += float64(originalColor.R)
-						sumG += float64(originalColor.G)
-						sumB += float64(originalColor.B)
-						sumA += float64(originalColor.A)
-					}
-				}
-
-				col := color.RGBA{
-					uint8(sumR / math.Pow(float64(factor), 2)),
-					uint8(sumG / math.Pow(float64(factor), 2)),
-					uint8(sumB / math.Pow(float64(factor), 2)),
-					uint8(sumA / math.Pow(float64(factor), 2)),
-				}
-
-				newImage[i][j] = col
-
-			}
-			wg.Done()
-		}(i)
-
-	}
-	wg.Wait()
-	*pixels = newImage
-	fmt.Println(green + itallic + "	Done!" + reset)
+	return dst
 }
 
 // Upscale scales the input image up with the given integer factor
-func Upscale(pixels *[][]color.Color, factor int) {
-	fmt.Println(cyan + bold + "Upscaling..." + reset)
-	ppixels := *pixels
-	iLen := len(ppixels)
-	jLen := len(ppixels[0])
+func Upscale(img image.Image, factor int) *image.RGBA {
+	dst := image.NewRGBA(image.Rect(0, 0, img.Bounds().Max.X*factor, img.Bounds().Max.Y*factor))
+	draw.NearestNeighbor.Scale(dst, dst.Rect, img, img.Bounds(), draw.Over, nil)
 
-	//create new image
-	newImage := make([][]color.Color, roundDown(float64(iLen*factor)))
-	for i := 0; i < len(newImage); i++ {
-		newImage[i] = make([]color.Color, roundDown(float64(jLen*factor)))
-	}
-
-	wg := sync.WaitGroup{}
-
-	for i := 0; i < iLen; i++ {
-		wg.Add(1) //do each row in parallel
-		go func(i int) {
-			for j := 0; j < jLen; j++ {
-
-				pixel := ppixels[i][j]
-
-				for k := 0; k < factor; k++ {
-					for l := 0; l < factor; l++ {
-						newImage[i*factor+k][j*factor+l] = pixel
-					}
-				}
-
-			}
-			wg.Done()
-		}(i)
-	}
-	wg.Wait()
-	*pixels = newImage
-	fmt.Println(green + itallic + "	Done!" + reset)
+	return dst
 }
 
 func addColorComponents(left int16, right int16) uint8 {
@@ -194,15 +122,13 @@ func addErrorToColor(errorColor errorColor, origColor color.Color, factor float6
 	return col
 }
 
-func getColorDifference(left color.Color, right color.Color) errorColor {
-	leftRGBA := colorpalette.ToRGBA(left)
-	rightRGBA := colorpalette.ToRGBA(right)
+func getColorDifference(left color.RGBA, right color.RGBA) errorColor {
 
 	col := errorColor{
-		R: int16(leftRGBA.R) - int16(rightRGBA.R),
-		G: int16(leftRGBA.G) - int16(rightRGBA.G),
-		B: int16(leftRGBA.B) - int16(rightRGBA.B),
-		A: int16(leftRGBA.A) - int16(rightRGBA.A),
+		R: int16(left.R) - int16(right.R),
+		G: int16(left.G) - int16(right.G),
+		B: int16(left.B) - int16(right.B),
+		A: int16(left.A) - int16(right.A),
 	}
 
 	return col
@@ -231,82 +157,32 @@ func pointToColor(point geom.Point) color.Color {
 	return col
 }
 
-// FloydSteinbergDithering applies the FS dithering effect
-//
-// Returns a image.Paletted image pointer.
-func FloydSteinbergDithering(pixels *[][]color.Color, palette colorpalette.ColorPalette) *image.Paletted {
-	fmt.Println(cyan + bold + "Starting dithering process!" + reset)
-
-	yLen := len(*pixels)
-	xLen := len((*pixels)[0])
-
-	upLeft := image.Point{0, 0}
-	lowRight := image.Point{yLen, xLen}
-	r := image.Rectangle{upLeft, lowRight}
-
-	p := palette.ToPalette()
-
-	newImage := image.NewPaletted(r, p)
-
-	for y := 0; y < yLen; y++ {
-		for x := 0; x < xLen; x++ {
-			oldPixel := (*pixels)[y][x]
-
-			colorIndex := uint8(p.Index(oldPixel))
-			(*pixels)[y][x] = p[colorIndex]
-
-			err := getColorDifference(oldPixel, (*pixels)[y][x])
-
-			newImage.Set(y, x, oldPixel)
-
-			if x+1 < xLen {
-				(*pixels)[y][x+1] = addErrorToColor(err, (*pixels)[y][x+1], 7.0/16.0)
-			}
-			if x-1 >= 0 && y+1 < yLen {
-				(*pixels)[y+1][x-1] = addErrorToColor(err, (*pixels)[y+1][x-1], 3.0/16.0)
-			}
-			if y+1 < yLen {
-				(*pixels)[y+1][x] = addErrorToColor(err, (*pixels)[y+1][x], 5.0/16.0)
-			}
-			if x+1 < xLen && y+1 < yLen {
-				(*pixels)[y+1][x+1] = addErrorToColor(err, (*pixels)[y+1][x+1], 1.0/16.0)
-			}
-		}
-	}
-
-	fmt.Println(green + itallic + "	Done!" + reset)
-
-	return newImage
-}
-
 // ApplyErrorDiffusion will apply the error diffusion dithering, with the provided slice of
 // error spreading ErrorDiffuser elements.
-func ApplyErrorDiffusion(pixels *[][]color.Color, palette colorpalette.ColorPalette, diffusers *ErrorDiffusionMatrix) *image.Paletted {
-	yLen := len(*pixels)
-	xLen := len((*pixels)[0])
+func ApplyErrorDiffusion(img AdjustableImage, palette color.Palette, diffusers *ErrorDiffusionMatrix) *image.Paletted {
+	X := img.Bounds().Max.X
+	Y := img.Bounds().Max.Y
 
-	upLeft := image.Point{0, 0}
-	lowRight := image.Point{yLen, xLen}
-	rect := image.Rectangle{upLeft, lowRight}
+	rect := img.Bounds()
 
-	pltte := palette.ToPalette()
+	newImage := image.NewPaletted(rect, palette)
 
-	newImage := image.NewPaletted(rect, pltte)
+	for y := 0; y <= Y; y++ {
+		for x := 0; x <= X; x++ {
+			oldPixel := img.RGBAAt(x, y)
 
-	for y := 0; y < yLen; y++ {
-		for x := 0; x < xLen; x++ {
-			oldPixel := (*pixels)[y][x]
+			colorIndex := uint8(palette.Index(oldPixel))
 
-			colorIndex := uint8(pltte.Index(oldPixel))
-			(*pixels)[y][x] = pltte[colorIndex]
+			img.Set(x, y, palette[colorIndex])
 
-			err := getColorDifference(oldPixel, (*pixels)[y][x])
+			err := getColorDifference(oldPixel, img.RGBAAt(x, y))
 
-			newImage.Set(y, x, oldPixel)
+			// automatically assigns that index that corresponds with oldPixel the best!
+			newImage.Set(x, y, oldPixel)
 
 			for _, dif := range *diffusers {
-				if dif.checkRange(x, y, xLen, yLen) {
-					(*pixels)[y+dif.y][x+dif.x] = addErrorToColor(err, (*pixels)[y+dif.y][x+dif.x], dif.fraction)
+				if dif.checkRange(x, y, X, Y) {
+					img.Set(x+dif.x, y+dif.y, addErrorToColor(err, img.RGBAAt(x+dif.x, y+dif.y), dif.fraction))
 				}
 			}
 		}
@@ -315,12 +191,12 @@ func ApplyErrorDiffusion(pixels *[][]color.Color, palette colorpalette.ColorPale
 	return newImage
 }
 
-func (dif *ErrorDiffuser) checkRange(x, y, xLen, yLen int) bool {
+func (dif *ErrorDiffuser) checkRange(x, y, X, Y int) bool {
 
-	if !((0 <= x+dif.x) && (x+dif.x < xLen)) {
+	if !((0 <= x+dif.x) && (x+dif.x <= X)) {
 		return false
 	}
-	if !((0 <= y+dif.y) && (y+dif.y < yLen)) {
+	if !((0 <= y+dif.y) && (y+dif.y <= Y)) {
 		return false
 	}
 	return true

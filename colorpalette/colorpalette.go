@@ -3,6 +3,7 @@ package colorpalette
 import (
 	"encoding/json"
 	"fmt"
+	"image"
 	"image/color"
 	"io/ioutil"
 	"math"
@@ -17,18 +18,33 @@ type ColorPalette struct {
 	Colors [][]int `json:"colors"`
 }
 
-// CreateColorPalette creates a new colorpalette using the k-means clustering algorithm
+// KMAccuracy is he accuracy needed for convergence of the k-means algorithm used in function Create
+var KMAccuracy = 0.005
+
+// KMConsecutive is the consecutive accuracy hits needed for convergence of the k-means algorithm
+// used in function Create
+var KMConsecutive = 2
+
+// SampleFactor describes the fraction of pixels to be used in creating a palette.
+var SampleFactor = 3
+
+// KMTimes descibes how many times the Kmeans algorithm needs to be run with random start
+var KMTimes = 3
+
+// Create creates a new colorpalette using the k-means clustering algorithm
 //
 //   - samplefactor: how many pixles to skip, during sampling for the creatrion of the KMeans problem's cluster points
 //     (higher means faster, because less points to iterate over)
 //   - kmTimes defines the amount of times to start the k-means algorithm with random init, the best output is choosen
-func Create(pixels *[][]color.Color, k int, samplefactor int, kmTimes int) ColorPalette {
+func Create(img image.Image, k int) color.Palette {
 	pointSet := geom.PointSet{}
 	// sample only 1/samplefactor of the pixels
-	for i := 0; i < len((*pixels)); i += samplefactor {
-		for j := 0; j < len((*pixels)[0]); j += samplefactor {
-			pointSet.Points = append(pointSet.Points, colorToPoint((*pixels)[i][j]))
-			pointSet.Points[len(pointSet.Points)-1].ID = i*(len((*pixels))/samplefactor) + j
+	for x := 0; x < img.Bounds().Max.X; x += SampleFactor {
+		for y := 0; y < img.Bounds().Max.Y; y += SampleFactor {
+			newPoint := colorToPoint(img.At(x, y))
+			newPoint.ID = x + y*img.Bounds().Max.X
+
+			pointSet.Points = append(pointSet.Points, newPoint)
 		}
 	}
 
@@ -36,14 +52,14 @@ func Create(pixels *[][]color.Color, k int, samplefactor int, kmTimes int) Color
 	var errors []float64
 
 	// do the algorithm kmTimes
-	for i := 0; i < kmTimes; i++ {
+	for i := 0; i < KMTimes; i++ {
 		KM := kmeans.CreateKMeansProblem(pointSet, k, geom.RedMeanDistance)
 
-		KM.Cluster(0.001, 2)
+		KM.Cluster(KMAccuracy, KMConsecutive)
 
 		colorPalette := ColorPalette{}
 		for index := range KM.KMeans.Points {
-			colorPalette.Colors = append(colorPalette.Colors, pointToColorSlice(KM.KMeans.Points[index]))
+			colorPalette.Colors = append(colorPalette.Colors, pointToColorSlice(*KM.KMeans.Points[index]))
 		}
 
 		colorPalettes = append(colorPalettes, colorPalette)
@@ -53,7 +69,7 @@ func Create(pixels *[][]color.Color, k int, samplefactor int, kmTimes int) Color
 	// now select the colorpalette with the lowest error!
 	minIndex := findMinIndex(errors)
 
-	return colorPalettes[minIndex]
+	return colorPalettes[minIndex].ToPalette()
 }
 
 func pointToColorSlice(point geom.Point) []int {
@@ -66,7 +82,7 @@ func pointToColorSlice(point geom.Point) []int {
 	return returnValue
 }
 
-func colorToPoint(clr color.Color) geom.Point {
+func colorToPoint(clr color.Color) *geom.Point {
 	clrRGBA := ToRGBA(clr)
 	coordinates := []float32{float32(clrRGBA.R), float32(clrRGBA.G), float32(clrRGBA.B), float32(clrRGBA.A)}
 	//coordinates = RGBAtoHSLA(coordinates)
@@ -74,7 +90,7 @@ func colorToPoint(clr color.Color) geom.Point {
 		Coordinates: coordinates,
 		ID:          0,
 	}
-	return point
+	return &point
 }
 
 func findMinIndex(arr []float64) int {
@@ -103,10 +119,10 @@ func GetPalettesFromJSON(jsonFileName string) []ColorPalette {
 // GetPaletteWithName returns a specific from a slice of ColorPalette.
 // The palette is specified by name.
 // If there is none that matches, a black ColorPalette is returned.
-func GetPaletteWithName(name string, palettes []ColorPalette) ColorPalette {
+func GetPaletteWithName(name string, palettes []ColorPalette) *ColorPalette {
 	for _, pltt := range palettes {
 		if pltt.Name == name {
-			return pltt
+			return &pltt
 		}
 	}
 
@@ -117,7 +133,7 @@ func GetPaletteWithName(name string, palettes []ColorPalette) ColorPalette {
 		"New",
 		colors,
 	}
-	return val
+	return &val
 }
 
 // ToJSONFile writes the given ColorPalette out to the specified path, as a JSON file (formatted).

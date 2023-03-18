@@ -17,8 +17,12 @@ type Clustering struct {
 	k              int           //The dimension of this k-means problem (amount of clusters)
 	Clusters       []geom.PointSet
 	maxDist        float64 //Maximum distance within the hyperbox containing all points
-	distanceMetric func(pnt1, pnt2 geom.Point) float64
+	distanceMetric func(pnt1, pnt2 *geom.Point) float64
+	// batch          []*geom.Point
 }
+
+var maxBatchSize = 30000
+var iterationLimit = 200
 
 // ClosestMeanIndex returns the index within the KM.kMeans slice
 // of that mean which is closest to the given point, by index pointIndex (stored in KM.points)
@@ -41,14 +45,30 @@ func ClosestMeanIndex(KM *Clustering, pointIndex int) int {
 	return bestIndex
 }
 
-// assignment performs the assignment step of the KMeans algorithm: assigning points to clusters.
-func (KM *Clustering) assignment() {
+// assign performs the assignment step of the KMeans algorithm: assigning points to clusters.
+func (KM *Clustering) assign() {
 	wg := sync.WaitGroup{}
 	lock := sync.Mutex{}
 
 	workers := runtime.GOMAXPROCS(0)
+
+	var pointChunks [][]*geom.Point
 	// try to divide amongst the amount of workers
-	pointChunks := KM.points.ChunkPoints(int(math.Ceil(float64(len(KM.points.Points)) / float64(workers))))
+	dividedAmount := int(math.Ceil(float64(len(KM.points.Points))) / float64(workers))
+
+	var batchSize int
+	if len(KM.points.Points) > maxBatchSize {
+		batchSize = maxBatchSize / workers
+	} else {
+		batchSize = dividedAmount
+	}
+
+	pointChunks = KM.points.ChunkPointsMiniBatch(workers, batchSize)
+
+	// KM.batch = make([]*geom.Point, 0)
+	// for i := range pointChunks {
+	// 	KM.batch = append(KM.batch, pointChunks[i]...)
+	// }
 
 	startIndex := 0
 
@@ -59,7 +79,7 @@ func (KM *Clustering) assignment() {
 	for _, points := range pointChunks {
 		wg.Add(1)
 
-		go func(points []geom.Point, startIndex int) {
+		go func(points []*geom.Point, startIndex int) {
 			newClusters := make([]geom.PointSet, KM.k)
 
 			for i, point := range points {
@@ -97,7 +117,7 @@ func (KM *Clustering) update() float64 {
 			if len(mean.Coordinates) == 0 {
 				KM.KMeans.Points[clusterID] = createRandomStart(KM.points, 1).Points[0] //bad choice, try another one
 			} else {
-				KM.KMeans.Points[clusterID] = mean
+				KM.KMeans.Points[clusterID] = &mean
 			}
 			change := KM.distanceMetric(old, KM.KMeans.Points[clusterID])
 			lock.Lock()
@@ -126,7 +146,7 @@ func (KM *Clustering) TotalDist() float64 {
 
 	for meanIndex := range KM.KMeans.Points { // iterate over all means
 		wg.Add(1)
-		go func(points []geom.Point, meanIndex int) {
+		go func(points []*geom.Point, meanIndex int) {
 			localSum := 0.0
 			for pointIndex := range points {
 				localSum += KM.distanceMetric(KM.KMeans.Points[meanIndex], KM.Clusters[meanIndex].Points[pointIndex])
@@ -150,7 +170,7 @@ func (KM *Clustering) TotalDist() float64 {
 //   - whether accuracy was met, as a bool
 //   - the achieved change, maxChange / KM.maxDist, as a percentage (float)
 func (KM *Clustering) iterate(accuracy float64) bool {
-	KM.assignment()
+	KM.assign()
 	maxChange := KM.update()
 
 	return (maxChange * 100 / KM.maxDist) < accuracy
@@ -161,7 +181,7 @@ func createRandomStart(points geom.PointSet, k int) geom.PointSet {
 	bounds := (&points).LowerAndUpperBounds()
 
 	returnValue := geom.PointSet{
-		Points: []geom.Point{},
+		Points: []*geom.Point{},
 	}
 
 	if len(bounds) < 1 {
@@ -183,7 +203,7 @@ func createRandomStart(points geom.PointSet, k int) geom.PointSet {
 			upp = bounds[dimNum].Upper                                                                //upper bound for this coordinate number
 			currentPoint.Coordinates = append(currentPoint.Coordinates, rand.Float32()*(upp-low)+low) //random value between corr. bounds
 		}
-		returnValue.Points = append(returnValue.Points, currentPoint) // add the fully random point to the geom.PointSet
+		returnValue.Points = append(returnValue.Points, &currentPoint) // add the fully random point to the geom.PointSet
 	}
 
 	return returnValue
@@ -193,7 +213,7 @@ func createRandomStart(points geom.PointSet, k int) geom.PointSet {
 //
 // points is the PointSet that contains the clusters that are to be found. k is the estimated amount of clusters.
 // distanceMetric is the function to be used for determining "closeness"
-func CreateKMeansProblem(points geom.PointSet, k int, distanceMetric func(pnt1, pnt2 geom.Point) float64) Clustering {
+func CreateKMeansProblem(points geom.PointSet, k int, distanceMetric func(pnt1, pnt2 *geom.Point) float64) Clustering {
 	kMeans := createRandomStart(points, k)
 
 	//Craete the initial clusters, consisting of just the random means in k different geom.PointSets
@@ -211,7 +231,7 @@ func CreateKMeansProblem(points geom.PointSet, k int, distanceMetric func(pnt1, 
 		point2.Coordinates = append(point2.Coordinates, bounds[dim].Upper)
 	}
 
-	maxDist := distanceMetric(point1, point2)
+	maxDist := distanceMetric(&point1, &point2)
 
 	returnValue := Clustering{
 		kMeans,
@@ -233,7 +253,10 @@ func (KM *Clustering) Cluster(accuracy float64, consecutiveTimes int) {
 	var done bool
 	var consecutiveDone int
 
-	for consecutiveDone < consecutiveTimes {
+	count := 0
+
+	for consecutiveDone < consecutiveTimes && count < iterationLimit {
+		count++
 		done = KM.iterate(accuracy)
 		if done {
 			consecutiveDone++

@@ -2,7 +2,9 @@ package geom
 
 import (
 	"math"
+	"math/rand"
 	"sort"
+	"time"
 )
 
 // Point is a collection of coordinates, with an identifier
@@ -13,7 +15,7 @@ type Point struct {
 
 // PointSet implements a slice of points
 type PointSet struct {
-	Points []Point
+	Points []*Point
 }
 
 // Bounds is a struct for lower - upper bounds
@@ -61,10 +63,13 @@ func (ps *PointSet) Contains(point Point) (bool, int) {
 	return false, -1
 }
 
-// ChunkPoints splits the given PointSet in chunks of size chunkSize.
+// ChunkPoints splits the given PointSet in n chunks.
 // The last chunk might be smaller if chunkSize is not a factor of len(PointSet.Points)
-func (ps *PointSet) ChunkPoints(chunkSize int) [][]Point {
-	var chunks [][]Point
+func (ps *PointSet) ChunkPoints(n int) [][]*Point {
+	var chunks [][]*Point
+
+	chunkSize := int(math.Ceil(float64(len(ps.Points)) / float64(n)))
+
 	for i := 0; i < len(ps.Points); i += chunkSize {
 		end := i + chunkSize
 
@@ -75,6 +80,25 @@ func (ps *PointSet) ChunkPoints(chunkSize int) [][]Point {
 		}
 
 		chunks = append(chunks, ps.Points[i:end])
+	}
+
+	return chunks
+}
+
+// ChunkPointsMiniBatch splits the given PointSet in n chunks.
+// "MiniBatch" refers to the fact that not all points will be used in the returned slice.
+// This function shuffles the PointSet!
+func (ps *PointSet) ChunkPointsMiniBatch(n, batchSize int) [][]*Point {
+	chunks := make([][]*Point, n)
+
+	// randomly shuffle the points
+	rand.Seed(time.Now().UnixNano())
+	rand.Shuffle(len(ps.Points), func(i, j int) {
+		ps.Points[i], ps.Points[j] = ps.Points[j], ps.Points[i]
+	})
+
+	for i := 0; i < n; i++ {
+		chunks[i] = append(chunks[i], ps.Points[i*batchSize:(i+1)*batchSize]...)
 	}
 
 	return chunks
@@ -177,7 +201,7 @@ func (ps *PointSet) BranchByMedian(axis int) (PointSet, PointSet, Point) {
 		right,
 	}
 
-	return leftSet, rightSet, ps.Points[medianIndex]
+	return leftSet, rightSet, *ps.Points[medianIndex]
 }
 
 // EuclidianDistance returns the euclidian distance of two points
@@ -192,7 +216,7 @@ func EuclidianDistance(pnt1, pnt2 Point) float64 {
 
 // RedMeanDistance returns the red mean distance of two color points,
 // thus only works with the first 3 dimensions of the points
-func RedMeanDistance(pnt1, pnt2 Point) float64 {
+func RedMeanDistance(pnt1, pnt2 *Point) float64 {
 	// only to use with colors!
 	redMean := (pnt1.Coordinates[0] + pnt2.Coordinates[0]) / 2
 
