@@ -13,3 +13,6 @@
 
 # hidden folders
 .vscode
+
+# test outputs etc.
+*.json
