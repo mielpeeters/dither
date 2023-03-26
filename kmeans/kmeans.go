@@ -22,7 +22,7 @@ type Clustering struct {
 }
 
 var maxBatchSize = 30000
-var iterationLimit = 200
+var iterationLimit = 100
 
 // ClosestMeanIndex returns the index within the KM.kMeans slice
 // of that mean which is closest to the given point, by index pointIndex (stored in KM.points)

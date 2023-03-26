@@ -19,14 +19,14 @@ type ColorPalette struct {
 }
 
 // KMAccuracy is he accuracy needed for convergence of the k-means algorithm used in function Create
-var KMAccuracy = 0.005
+var KMAccuracy = 0.01
 
 // KMConsecutive is the consecutive accuracy hits needed for convergence of the k-means algorithm
 // used in function Create
 var KMConsecutive = 2
 
 // SampleFactor describes the fraction of pixels to be used in creating a palette.
-var SampleFactor = 3
+var SampleFactor = 5
 
 // KMTimes descibes how many times the Kmeans algorithm needs to be run with random start
 var KMTimes = 3

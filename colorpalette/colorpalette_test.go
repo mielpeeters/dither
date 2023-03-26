@@ -29,7 +29,7 @@ type Result struct {
 }
 
 func testInit(t *testing.T) {
-	imgOrig, err := imgutil.OpenImage("../data/sample-image.jpg")
+	imgOrig, err := imgutil.OpenImage("../data/sample-image-2.jpg")
 	if err != nil {
 		fmt.Println(err)
 		t.Errorf("couldn't open image")
@@ -39,8 +39,8 @@ func testInit(t *testing.T) {
 }
 
 // TestKMSpeed tests the speed of the KM algorithm for a range of parameters
-func TestCreateSpeed(t *testing.T) {
-	fmt.Printf("\n\n\033[1mStart Create Speed Test\033[0m\n\n")
+func TestCreatePool(t *testing.T) {
+	fmt.Printf("\n\n\033[1mStart Create Speed Test Pool.\033[0m\n\n")
 
 	totalRuns := ((scaleMax-1)/scaleStep + 1) * ((Max-1)/Step + 1)
 	run := 0
@@ -77,4 +77,22 @@ func TestCreateSpeed(t *testing.T) {
 		fmt.Println(err)
 	}
 	fmt.Printf("\n\033[1m\033[32mDONE\033[0m\n\n")
+}
+
+func TestCreateOnce(t *testing.T) {
+	fmt.Printf("\n\n\033[1mStart Create Speed Test Once.\033[0m\n\n")
+
+	scale = 5
+	k = 10
+	KMTimes = 10
+
+	testInit(t)
+
+	start := time.Now()
+
+	Create(img, k)
+
+	duration := time.Since(start)
+
+	fmt.Printf("\n\033[1m\033[32m done: took %.2f seconds\n\n", duration.Seconds())
 }
