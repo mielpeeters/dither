@@ -35,11 +35,13 @@ type Giffer struct {
 	// Frames is used to indicate the amount of frames the input,
 	// and thus output video have
 	Frames int
+	// Palette can be set by the user, if left at default nil,
+	// gifeo will create the palette from the first frame
+	Palette color.Palette
 
 	pb           pacebar.Pacebar
 	first        bool
 	frame        int
-	palette      color.Palette
 	ditherMatrix process.ErrorDiffusionMatrix
 }
 
@@ -84,7 +86,7 @@ func (gf *Giffer) CreateVideo(inputDir, outputFile string) {
 		// This is more efficient then each frame having its own color table, which
 		// is the default when there's no config.
 		Config: image.Config{
-			ColorModel: gf.palette,
+			ColorModel: gf.Palette,
 			Width:      (*frames[0]).Rect.Dx(),
 			Height:     (*frames[0]).Rect.Dy(),
 		},
@@ -114,12 +116,14 @@ func (gf *Giffer) handleFrame(path string, frames *[]*image.Paletted) {
 	scaledImage := process.Downscale(img, gf.Scale)
 
 	if gf.first {
-		gf.palette = colorpalette.Create(scaledImage, gf.K)
+		if gf.Palette == nil {
+			gf.Palette = colorpalette.Create(scaledImage, gf.K)
+		}
 		gf.ditherMatrix = process.JarvisJudiceNinke
 		gf.first = false
 	}
 
-	paletted := process.ApplyErrorDiffusion(scaledImage, gf.palette, &gf.ditherMatrix)
+	paletted := process.ApplyErrorDiffusion(scaledImage, gf.Palette, &gf.ditherMatrix)
 
 	*frames = append(*frames, paletted)
 
