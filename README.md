@@ -12,7 +12,7 @@ This go module contains multiple packages:
 - **gifeo**: a package for creating dithered gif videos (gif + video = gifeo)
 
 <div style="text-align:center"><img src="https://user-images.githubusercontent.com/72082402/225594701-a15c3d26-5ad9-4d42-9d25-cdc7751c8ad2.png" alt="example image created using the dither module." height="400"></div>
-![](https://user-images.githubusercontent.com/72082402/227805266-be47ad7d-c4d4-47cd-9cec-d24196aa07b9.gif)
+<div style="text-align:center"><img src="https://user-images.githubusercontent.com/72082402/227805266-be47ad7d-c4d4-47cd-9cec-d24196aa07b9.gif" alt="example gif video created using the dither module." height="400"></div>
 
 ## Usage
 In your go module (after having run `go mod init mymodule`), get this module by running `go get github.com/mielpeeters/dither`.
