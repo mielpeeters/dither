@@ -12,9 +12,12 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
+	"sync"
 
 	"github.com/mielpeeters/dither/colorpalette"
 	"github.com/mielpeeters/dither/imgutil"
+	"github.com/mielpeeters/dither/needle"
 	"github.com/mielpeeters/dither/process"
 	"github.com/mielpeeters/pacebar"
 )
@@ -32,24 +35,20 @@ type Giffer struct {
 	Scale int
 	// K is the amount of colors to be used in the palette
 	K int
-	// Frames is used to indicate the amount of frames the input,
-	// and thus output video have
-	Frames int
 	// Palette can be set by the user, if left at default nil,
 	// gifeo will create the palette from the first frame
 	Palette color.Palette
 
+	mu           sync.Mutex
 	pb           pacebar.Pacebar
 	first        bool
 	frame        int
+	frames       []*image.Paletted
 	ditherMatrix process.ErrorDiffusionMatrix
 }
 
 // CreateVideo is used to create the gif video
 func (gf *Giffer) CreateVideo(inputDir, outputFile string) {
-	if Verbosity > 0 {
-		gf.pb = pacebar.Pacebar{Work: gf.Frames}
-	}
 
 	pattern := "frame_[0-9]{5}\\.jpg"
 
@@ -58,28 +57,70 @@ func (gf *Giffer) CreateVideo(inputDir, outputFile string) {
 		panic(err)
 	}
 
-	frames := make([]*image.Paletted, 0)
-
 	gf.first = true
 	gf.frame = 0
 
+	// paths maps frame numbers to their paths
+	paths := make(map[int]string, 0)
+
+	// add an entry that maps frame count to the path string per matching path
 	filepath.Walk(inputDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 		if !info.IsDir() && re.MatchString(info.Name()) {
-			gf.handleFrame(path, &frames)
+			paths[gf.frame] = path
+			gf.frame++
 		}
 		return nil
 	})
 
-	delays := make([]int, len(frames))
+	// create the pacebar if verbosity is set
+	if Verbosity > 0 {
+		gf.pb = pacebar.Pacebar{Work: len(paths)}
+		fmt.Println("Amount of paths:", len(paths))
+	}
+
+	// frames keeps the processed frames in a slice
+	gf.frames = make([]*image.Paletted, len(paths))
+
+	// make a slice of the keys of the paths map (frame numbers)
+	// will be used to spread the multithreaded load
+	keys := make([]int, len(paths))
+	i := 0
+	for key := range paths {
+		keys[i] = key
+		i++
+	}
+
+	// divide the frameNumbers in chunks, each to be dealth with by one thread
+	frameNumbers := needle.ChunkSlice(keys, runtime.GOMAXPROCS(0))
+
+	// start multithreaded processing of frames
+	wg := sync.WaitGroup{}
+
+	for i := range frameNumbers {
+		wg.Add(1)
+		go func(myFrameNumbers *[]int) {
+			for _, j := range *myFrameNumbers {
+				// here, all of the frames that are my responsibility will be dealth with
+				gf.handleFrame((paths)[j], j)
+			}
+			wg.Done()
+		}(&frameNumbers[i])
+	}
+
+	// wait for all child threads to finish
+	wg.Wait()
+
+	// everything from here down is encoding & saving the gif
+	delays := make([]int, len(paths))
 	for i := range delays {
 		delays[i] = 4
 	}
 
 	g := gif.GIF{
-		Image: frames,
+		Image: gf.frames,
 		Delay: delays,
 
 		// By specifying a Config, we can set a global color table for the GIF.
@@ -87,8 +128,8 @@ func (gf *Giffer) CreateVideo(inputDir, outputFile string) {
 		// is the default when there's no config.
 		Config: image.Config{
 			ColorModel: gf.Palette,
-			Width:      (*frames[0]).Rect.Dx(),
-			Height:     (*frames[0]).Rect.Dy(),
+			Width:      (*gf.frames[0]).Rect.Dx(),
+			Height:     (*gf.frames[0]).Rect.Dy(),
 		},
 	}
 
@@ -105,7 +146,7 @@ func (gf *Giffer) CreateVideo(inputDir, outputFile string) {
 	fmt.Println("Gifeo: GIF video saved.")
 }
 
-func (gf *Giffer) handleFrame(path string, frames *[]*image.Paletted) {
+func (gf *Giffer) handleFrame(path string, frameNo int) {
 	// open the input image
 	img, err := imgutil.OpenImage(path)
 	if err != nil {
@@ -116,17 +157,22 @@ func (gf *Giffer) handleFrame(path string, frames *[]*image.Paletted) {
 	scaledImage := process.Downscale(img, gf.Scale)
 
 	if gf.first {
-		if gf.Palette == nil {
-			gf.Palette = colorpalette.Create(scaledImage, gf.K)
+		gf.mu.Lock() // only one process gets through when gf.first is still true
+		if gf.first {
+			if gf.Palette == nil {
+				gf.Palette = colorpalette.Create(scaledImage, gf.K)
+			}
+			gf.ditherMatrix = process.JarvisJudiceNinke
+			gf.first = false
 		}
-		gf.ditherMatrix = process.JarvisJudiceNinke
-		gf.first = false
+		gf.mu.Unlock()
 	}
 
 	paletted := process.ApplyErrorDiffusion(scaledImage, gf.Palette, &gf.ditherMatrix)
 
-	*frames = append(*frames, paletted)
+	gf.frames[frameNo] = paletted
 
-	gf.frame++
-	gf.pb.Done(1)
+	if Verbosity > 0 {
+		gf.pb.Done(1)
+	}
 }

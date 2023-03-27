@@ -6,4 +6,4 @@ replace github.com/mielpeeters/dither => ../dither
 
 require golang.org/x/image v0.6.0
 
-require github.com/mielpeeters/pacebar v0.2.0 // indirect
+require github.com/mielpeeters/pacebar v0.2.0
