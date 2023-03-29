@@ -5,7 +5,6 @@
 package gifeo
 
 import (
-	"fmt"
 	"image"
 	"image/color"
 	"image/gif"
@@ -39,15 +38,15 @@ type Giffer struct {
 	// gifeo will create the palette from the first frame
 	Palette color.Palette
 
-	mu           sync.Mutex
-	pb           pacebar.Pacebar
-	first        bool
-	frame        int
-	frames       []*image.Paletted
-	ditherMatrix process.ErrorDiffusionMatrix
+	mu     sync.Mutex
+	pb     pacebar.Pacebar
+	frames []*image.Paletted
 }
 
 // CreateVideo is used to create the gif video
+// The frames in the inputDir directory need to be of format: frame_ddddd.jpg.
+// This can be achieved with ffmpeg by specifying as an output: frame_%05d.jpg
+// That does mean that the maximum GIF length is 6min40s
 func (gf *Giffer) CreateVideo(inputDir, outputFile string) {
 
 	pattern := "frame_[0-9]{5}\\.jpg"
@@ -57,8 +56,7 @@ func (gf *Giffer) CreateVideo(inputDir, outputFile string) {
 		panic(err)
 	}
 
-	gf.first = true
-	gf.frame = 0
+	frame := 0
 
 	// paths maps frame numbers to their paths
 	paths := make(map[int]string, 0)
@@ -69,8 +67,8 @@ func (gf *Giffer) CreateVideo(inputDir, outputFile string) {
 			return err
 		}
 		if !info.IsDir() && re.MatchString(info.Name()) {
-			paths[gf.frame] = path
-			gf.frame++
+			paths[frame] = path
+			frame++
 		}
 		return nil
 	})
@@ -78,7 +76,6 @@ func (gf *Giffer) CreateVideo(inputDir, outputFile string) {
 	// create the pacebar if verbosity is set
 	if Verbosity > 0 {
 		gf.pb = pacebar.Pacebar{Work: len(paths)}
-		fmt.Println("Amount of paths:", len(paths))
 	}
 
 	// frames keeps the processed frames in a slice
@@ -113,37 +110,41 @@ func (gf *Giffer) CreateVideo(inputDir, outputFile string) {
 	// wait for all child threads to finish
 	wg.Wait()
 
+	EncodeGIF(gf.frames, &gf.Palette, outputFile)
+}
+
+// EncodeGIF encodes a slice of image.Paletted images with a given palette and
+// saves it into the outputFile path.
+func EncodeGIF(frames []*image.Paletted, palette *color.Palette, outputFile string) {
 	// everything from here down is encoding & saving the gif
-	delays := make([]int, len(paths))
+	delays := make([]int, len(frames))
 	for i := range delays {
 		delays[i] = 4
 	}
 
 	g := gif.GIF{
-		Image: gf.frames,
+		Image: frames,
 		Delay: delays,
 
 		// By specifying a Config, we can set a global color table for the GIF.
 		// This is more efficient then each frame having its own color table, which
 		// is the default when there's no config.
 		Config: image.Config{
-			ColorModel: gf.Palette,
-			Width:      (*gf.frames[0]).Rect.Dx(),
-			Height:     (*gf.frames[0]).Rect.Dy(),
+			ColorModel: *palette,
+			Width:      (*frames[0]).Rect.Dx(),
+			Height:     (*frames[0]).Rect.Dy(),
 		},
 	}
 
-	f2, err := os.Create(outputFile)
+	file, err := os.Create(outputFile)
 	if err != nil {
 		panic(err)
 	}
 
-	err = gif.EncodeAll(f2, &g)
+	err = gif.EncodeAll(file, &g)
 	if err != nil {
 		panic(err)
 	}
-
-	fmt.Println("Gifeo: GIF video saved.")
 }
 
 func (gf *Giffer) handleFrame(path string, frameNo int) {
@@ -156,19 +157,15 @@ func (gf *Giffer) handleFrame(path string, frameNo int) {
 	// scale the image down with a given scale
 	scaledImage := process.Downscale(img, gf.Scale)
 
-	if gf.first {
-		gf.mu.Lock() // only one process gets through when gf.first is still true
-		if gf.first {
-			if gf.Palette == nil {
-				gf.Palette = colorpalette.Create(scaledImage, gf.K)
-			}
-			gf.ditherMatrix = process.JarvisJudiceNinke
-			gf.first = false
+	if gf.Palette == nil {
+		gf.mu.Lock() // only one process gets through when gf.Palette is still nill
+		if gf.Palette == nil {
+			gf.Palette = colorpalette.Create(scaledImage, gf.K)
 		}
 		gf.mu.Unlock()
 	}
 
-	paletted := process.ApplyErrorDiffusion(scaledImage, gf.Palette, &gf.ditherMatrix)
+	paletted := process.ApplyErrorDiffusion(scaledImage, gf.Palette, &process.JarvisJudiceNinke)
 
 	gf.frames[frameNo] = paletted
 

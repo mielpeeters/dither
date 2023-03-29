@@ -31,7 +31,7 @@ func ClosestMeanIndex(KM *Clustering, pointIndex int) int {
 	var bestIndex int
 	for meanIndex := range KM.KMeans.Points { //check all means
 
-		dist := KM.distanceMetric(KM.points.Points[pointIndex], KM.KMeans.Points[meanIndex])
+		dist := KM.distanceMetric(&KM.points.Points[pointIndex], &KM.KMeans.Points[meanIndex])
 
 		if meanIndex == 0 {
 			minDist = dist
@@ -52,7 +52,7 @@ func (KM *Clustering) assign() {
 
 	workers := runtime.GOMAXPROCS(0)
 
-	var pointChunks [][]*geom.Point
+	var pointChunks [][]geom.Point
 	// try to divide amongst the amount of workers
 	dividedAmount := int(math.Ceil(float64(len(KM.points.Points))) / float64(workers))
 
@@ -79,7 +79,7 @@ func (KM *Clustering) assign() {
 	for _, points := range pointChunks {
 		wg.Add(1)
 
-		go func(points []*geom.Point, startIndex int) {
+		go func(points []geom.Point, startIndex int) {
 			newClusters := make([]geom.PointSet, KM.k)
 
 			for i, point := range points {
@@ -117,9 +117,9 @@ func (KM *Clustering) update() float64 {
 			if len(mean.Coordinates) == 0 {
 				KM.KMeans.Points[clusterID] = createRandomStart(KM.points, 1).Points[0] //bad choice, try another one
 			} else {
-				KM.KMeans.Points[clusterID] = &mean
+				KM.KMeans.Points[clusterID] = mean
 			}
-			change := KM.distanceMetric(old, KM.KMeans.Points[clusterID])
+			change := KM.distanceMetric(&old, &KM.KMeans.Points[clusterID])
 			lock.Lock()
 			changes = append(changes, change)
 			lock.Unlock()
@@ -146,10 +146,10 @@ func (KM *Clustering) TotalDist() float64 {
 
 	for meanIndex := range KM.KMeans.Points { // iterate over all means
 		wg.Add(1)
-		go func(points []*geom.Point, meanIndex int) {
+		go func(points []geom.Point, meanIndex int) {
 			localSum := 0.0
 			for pointIndex := range points {
-				localSum += KM.distanceMetric(KM.KMeans.Points[meanIndex], KM.Clusters[meanIndex].Points[pointIndex])
+				localSum += KM.distanceMetric(&KM.KMeans.Points[meanIndex], &KM.Clusters[meanIndex].Points[pointIndex])
 			}
 
 			mutex.Lock()
@@ -181,7 +181,7 @@ func createRandomStart(points geom.PointSet, k int) geom.PointSet {
 	bounds := (&points).LowerAndUpperBounds()
 
 	returnValue := geom.PointSet{
-		Points: []*geom.Point{},
+		Points: []geom.Point{},
 	}
 
 	if len(bounds) < 1 {
@@ -203,7 +203,7 @@ func createRandomStart(points geom.PointSet, k int) geom.PointSet {
 			upp = bounds[dimNum].Upper                                                                //upper bound for this coordinate number
 			currentPoint.Coordinates = append(currentPoint.Coordinates, rand.Float32()*(upp-low)+low) //random value between corr. bounds
 		}
-		returnValue.Points = append(returnValue.Points, &currentPoint) // add the fully random point to the geom.PointSet
+		returnValue.Points = append(returnValue.Points, currentPoint) // add the fully random point to the geom.PointSet
 	}
 
 	return returnValue

@@ -59,7 +59,7 @@ func Create(img image.Image, k int) color.Palette {
 
 		colorPalette := ColorPalette{}
 		for index := range KM.KMeans.Points {
-			colorPalette.Colors = append(colorPalette.Colors, pointToColorSlice(*KM.KMeans.Points[index]))
+			colorPalette.Colors = append(colorPalette.Colors, pointToColorSlice(KM.KMeans.Points[index]))
 		}
 
 		colorPalettes = append(colorPalettes, colorPalette)
@@ -82,7 +82,7 @@ func pointToColorSlice(point geom.Point) []int {
 	return returnValue
 }
 
-func colorToPoint(clr color.Color) *geom.Point {
+func colorToPoint(clr color.Color) geom.Point {
 	clrRGBA := ToRGBA(clr)
 	coordinates := []float32{float32(clrRGBA.R), float32(clrRGBA.G), float32(clrRGBA.B), float32(clrRGBA.A)}
 	//coordinates = RGBAtoHSLA(coordinates)
@@ -90,7 +90,7 @@ func colorToPoint(clr color.Color) *geom.Point {
 		Coordinates: coordinates,
 		ID:          0,
 	}
-	return &point
+	return point
 }
 
 func findMinIndex(arr []float64) int {

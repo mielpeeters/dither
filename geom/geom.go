@@ -15,7 +15,7 @@ type Point struct {
 
 // PointSet implements a slice of points
 type PointSet struct {
-	Points []*Point
+	Points []Point
 }
 
 // Bounds is a struct for lower - upper bounds
@@ -65,8 +65,8 @@ func (ps *PointSet) Contains(point Point) (bool, int) {
 
 // ChunkPoints splits the given PointSet in n chunks.
 // The last chunk might be smaller if chunkSize is not a factor of len(PointSet.Points)
-func (ps *PointSet) ChunkPoints(n int) [][]*Point {
-	var chunks [][]*Point
+func (ps *PointSet) ChunkPoints(n int) [][]Point {
+	var chunks [][]Point
 
 	chunkSize := int(math.Ceil(float64(len(ps.Points)) / float64(n)))
 
@@ -88,8 +88,8 @@ func (ps *PointSet) ChunkPoints(n int) [][]*Point {
 // ChunkPointsMiniBatch splits the given PointSet in n chunks.
 // "MiniBatch" refers to the fact that not all points will be used in the returned slice.
 // This function shuffles the PointSet!
-func (ps *PointSet) ChunkPointsMiniBatch(n, batchSize int) [][]*Point {
-	chunks := make([][]*Point, n)
+func (ps *PointSet) ChunkPointsMiniBatch(n, batchSize int) [][]Point {
+	chunks := make([][]Point, n)
 
 	// randomly shuffle the points
 	rand.Seed(time.Now().UnixNano())
@@ -201,7 +201,7 @@ func (ps *PointSet) BranchByMedian(axis int) (PointSet, PointSet, Point) {
 		right,
 	}
 
-	return leftSet, rightSet, *ps.Points[medianIndex]
+	return leftSet, rightSet, ps.Points[medianIndex]
 }
 
 // EuclidianDistance returns the euclidian distance of two points

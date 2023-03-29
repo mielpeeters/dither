@@ -20,7 +20,7 @@ var Max int = 20
 var Step int = 4
 var scaleMax = 20
 var scaleStep = 4
-var results []*Result
+var results []Result
 
 type Result struct {
 	Seconds float64
@@ -56,7 +56,7 @@ func TestCreatePool(t *testing.T) {
 			Create(img, k)
 			duration := time.Since(start)
 
-			results = append(results, &Result{
+			results = append(results, Result{
 				Seconds: duration.Seconds(),
 				Scale:   scale,
 				K:       k,
