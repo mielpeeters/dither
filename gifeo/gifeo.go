@@ -110,17 +110,20 @@ func (gf *Giffer) CreateVideo(inputDir, outputFile string) {
 	// wait for all child threads to finish
 	wg.Wait()
 
-	EncodeGIF(gf.frames, &gf.Palette, outputFile)
+	EncodeGIF(gf.frames, outputFile, 4)
 }
 
 // EncodeGIF encodes a slice of image.Paletted images with a given palette and
 // saves it into the outputFile path.
-func EncodeGIF(frames []*image.Paletted, palette *color.Palette, outputFile string) {
+func EncodeGIF(frames []*image.Paletted, outputFile string, delay int) {
 	// everything from here down is encoding & saving the gif
 	delays := make([]int, len(frames))
 	for i := range delays {
-		delays[i] = 4
+		delays[i] = delay
 	}
+
+	// frame 0 used for config
+	frame0 := *frames[0]
 
 	g := gif.GIF{
 		Image: frames,
@@ -130,9 +133,9 @@ func EncodeGIF(frames []*image.Paletted, palette *color.Palette, outputFile stri
 		// This is more efficient then each frame having its own color table, which
 		// is the default when there's no config.
 		Config: image.Config{
-			ColorModel: *palette,
-			Width:      (*frames[0]).Rect.Dx(),
-			Height:     (*frames[0]).Rect.Dy(),
+			ColorModel: frame0.Palette,
+			Width:      frame0.Rect.Dx(),
+			Height:     frame0.Rect.Dy(),
 		},
 	}
 
