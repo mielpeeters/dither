@@ -6,7 +6,7 @@ package gameofcolor
 
 // TODO: find a way to combine multiple rules, based on some probability or weight maybe
 // TODO: define different types of rules that adjust the neighouring pixels in some way,
-//			this could create movement possibly
+//		 this could create movement possibly
 
 import (
 	"image"
@@ -158,54 +158,74 @@ func EightNeighbours() []Neighbour {
 func TwelveNeighbours() []Neighbour {
 	neighbours := make([]Neighbour, 12)
 
-	neighbours[0] = Neighbour{
-		X: -1,
-		Y: -1,
-	}
-	neighbours[1] = Neighbour{
-		X: -1,
-		Y: 0,
-	}
-	neighbours[2] = Neighbour{
-		X: -1,
-		Y: 1,
-	}
-	neighbours[3] = Neighbour{
-		X: 0,
-		Y: -1,
-	}
-	neighbours[4] = Neighbour{
-		X: 0,
-		Y: 1,
-	}
-	neighbours[5] = Neighbour{
-		X: 1,
-		Y: -1,
-	}
-	neighbours[6] = Neighbour{
-		X: 1,
-		Y: 0,
-	}
-	neighbours[7] = Neighbour{
-		X: 1,
-		Y: 1,
-	}
-	neighbours[8] = Neighbour{
-		X: 0,
-		Y: 2,
-	}
-	neighbours[9] = Neighbour{
-		X: 2,
-		Y: 0,
-	}
-	neighbours[10] = Neighbour{
-		X: -2,
-		Y: 0,
-	}
-	neighbours[11] = Neighbour{
-		X: 0,
-		Y: -2,
-	}
+	neighbours[0] = Neighbour{X: -1, Y: -1}
+	neighbours[1] = Neighbour{X: -1, Y: 0}
+	neighbours[2] = Neighbour{X: -1, Y: 1}
+	neighbours[3] = Neighbour{X: 0, Y: -1}
+	neighbours[4] = Neighbour{X: 0, Y: 1}
+	neighbours[5] = Neighbour{X: 1, Y: -1}
+	neighbours[6] = Neighbour{X: 1, Y: 0}
+	neighbours[7] = Neighbour{X: 1, Y: 1}
+	neighbours[8] = Neighbour{X: 0, Y: 2}
+	neighbours[9] = Neighbour{X: 2, Y: 0}
+	neighbours[10] = Neighbour{X: -2, Y: 0}
+	neighbours[11] = Neighbour{X: 0, Y: -2}
+
+	return neighbours
+}
+
+// CircleNeighbours returns the neighbours within a close circle
+func CircleNeighbours() []Neighbour {
+	neighbours := make([]Neighbour, 20)
+
+	neighbours[0] = Neighbour{X: -1, Y: -2}
+	neighbours[1] = Neighbour{X: 0, Y: -2}
+	neighbours[2] = Neighbour{X: 1, Y: -2}
+
+	neighbours[3] = Neighbour{X: -2, Y: -1}
+	neighbours[4] = Neighbour{X: -1, Y: -1}
+	neighbours[5] = Neighbour{X: 0, Y: -1}
+	neighbours[6] = Neighbour{X: 1, Y: -1}
+	neighbours[7] = Neighbour{X: 2, Y: -1}
+
+	neighbours[8] = Neighbour{X: -2, Y: 0}
+	neighbours[9] = Neighbour{X: -1, Y: 0}
+	neighbours[10] = Neighbour{X: 1, Y: 0}
+	neighbours[11] = Neighbour{X: 2, Y: 0}
+
+	neighbours[12] = Neighbour{X: -2, Y: 1}
+	neighbours[13] = Neighbour{X: -1, Y: 1}
+	neighbours[14] = Neighbour{X: 0, Y: 1}
+	neighbours[15] = Neighbour{X: 1, Y: 1}
+	neighbours[16] = Neighbour{X: 2, Y: 1}
+
+	neighbours[17] = Neighbour{X: -1, Y: 2}
+	neighbours[18] = Neighbour{X: 0, Y: 2}
+	neighbours[19] = Neighbour{X: 1, Y: 2}
+
+	return neighbours
+}
+
+// RingNeighbours returns a ring of neigbours
+func RingNeighbours() []Neighbour {
+	neighbours := make([]Neighbour, 12)
+
+	neighbours[0] = Neighbour{X: -1, Y: -2}
+	neighbours[1] = Neighbour{X: 0, Y: -2}
+	neighbours[2] = Neighbour{X: 1, Y: -2}
+
+	neighbours[3] = Neighbour{X: -2, Y: -1}
+	neighbours[4] = Neighbour{X: 2, Y: -1}
+
+	neighbours[5] = Neighbour{X: -2, Y: 0}
+	neighbours[6] = Neighbour{X: 2, Y: 0}
+
+	neighbours[7] = Neighbour{X: -2, Y: 1}
+	neighbours[8] = Neighbour{X: 2, Y: 1}
+
+	neighbours[9] = Neighbour{X: -1, Y: 2}
+	neighbours[10] = Neighbour{X: 0, Y: 2}
+	neighbours[11] = Neighbour{X: 1, Y: 2}
 
 	return neighbours
 }
@@ -265,6 +285,44 @@ func MazeRules() RuleMap {
 			NewColorElse:   1,
 			Neighbours:     EightNeighbours(),
 		},
+	}
+
+	return rm
+}
+
+// RockPaperScissors : rock crushes scissors, scissors cut paper, paper wraps rock
+func RockPaperScissors(colorAmount int) RuleMap {
+	rm := make(RuleMap)
+
+	for i := 0; i < colorAmount; i++ {
+		rules := []Rule{{
+			Lower:          8,
+			Upper:          20,
+			NeighbourColor: uint8((i + 1) % colorAmount),
+			NewColorIf:     uint8((i + 1) % colorAmount),
+			NewColorElse:   uint8(i),
+			Neighbours:     CircleNeighbours(),
+		}}
+		rm[uint8(i)] = rules
+	}
+
+	return rm
+}
+
+// Crystalisation : crystal forming structures
+func Crystalisation(colorAmount int) RuleMap {
+	rm := make(RuleMap)
+
+	for i := 0; i < colorAmount; i++ {
+		rules := []Rule{{
+			Lower:          7,
+			Upper:          8,
+			NeighbourColor: uint8((i + 1) % colorAmount),
+			NewColorIf:     uint8((i + 1) % colorAmount),
+			NewColorElse:   uint8(i),
+			Neighbours:     CircleNeighbours(),
+		}}
+		rm[uint8(i)] = rules
 	}
 
 	return rm
