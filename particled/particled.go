@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"math"
+
+	"github.com/mielpeeters/dither/geom"
 )
 
 // Pixicle is a Pixel Particle
@@ -16,13 +19,13 @@ type Pixicle struct {
 	// Colour, contains the index of some palette
 	Colour int
 	// Velocity is the 2d speed that the particle currently has
-	Velocity [2]float64
+	Velocity geom.Vec
 	// Mass is the constant movement inertia value of this Pixicle.
 	Mass float64
 	// Position stores the high-accuracy location of the Pixicle.
-	Position    [2]float64
-	newPosition [2]float64
-	newVelocity [2]float64
+	Position    geom.Vec
+	newPosition geom.Vec
+	newVelocity geom.Vec
 	id          int
 }
 
@@ -42,8 +45,12 @@ type Particled struct {
 	// Particles is a pointer to a slice of all pixicles
 	Pixicles *[]Pixicle
 	// Palette holds the used colourpalette for this image
-	Palette       color.Palette
+	Palette color.Palette
+	// Calculation is a function that calculates the new position and
+	// velocity of a pixicle, given the set of all pixicles in the image
+	Calculation   func(pix *Pixicle, pixs *[]Pixicle, timestep float64, options map[string]any)
 	width, height int
+	options       map[string]any
 }
 
 func (pix Pixicle) toCoordinate() coordinate {
@@ -131,22 +138,76 @@ func (p Particled) ToPaletted() *image.Paletted {
 	return paletted
 }
 
-func (pix Pixicle) calculate(timestep float64, pixicles *[]Pixicle) {
-	// TODO: define some physics rules and calculate the resulting position and velocity change
-	// ---> use Runge Kutta 4th order for stability measures!
+// calculate calls the calculation function on all pixicles
+func (p Particled) calculate(timestep float64) {
+	for _, pixicle := range *p.Pixicles {
+		p.Calculation(&pixicle, p.Pixicles, timestep, p.options)
+	}
 }
 
-func (pix Pixicle) update() {
-	// TODO: set all positions and velocities to the next ones.
+// update updates all pixicles to the new positions and velocities
+func (p Particled) update() {
+	for _, pixicle := range *p.Pixicles {
+		pixicle.Position = pixicle.newPosition
+		pixicle.Velocity = pixicle.newVelocity
+	}
 }
 
 // Iterate runs through one timestep of the physics loop.
 func (p Particled) Iterate(timestep float64) {
-	for _, pixicle := range *p.Pixicles {
-		pixicle.calculate(timestep, p.Pixicles)
+	p.calculate(timestep)
+	p.update()
+}
+
+func squareDist(p1, p2 *Pixicle) float64 {
+	tmp := math.Pow((p1.Position[0] - p2.Position[0]), 2)
+	tmp += math.Pow((p1.Position[1] - p2.Position[1]), 2)
+
+	return tmp
+}
+
+// force along axis between two points, positive if attraction
+func gravityForce(p1, p2 *Pixicle, likeness float64) geom.Vec {
+	direction := p2.Position.Sub(&p1.Position)
+	var force float64
+	dist := squareDist(p1, p2)
+	if dist > 0 {
+		force = likeness * p1.Mass * p2.Mass / squareDist(p1, p2)
 	}
 
-	for _, pixicle := range *p.Pixicles {
-		pixicle.update()
+	return direction.Scale(force)
+}
+
+func totalGravityForce(pix *Pixicle, pixs *[]Pixicle, options map[string]any) geom.Vec {
+	var force geom.Vec
+	var likeness float64
+	var currentForce geom.Vec
+	// current implementation is very naive Euler...
+	for _, other := range *pixs {
+		likeness = options["likeness"].(func(int, int) float64)(pix.Colour, other.Colour)
+		currentForce = gravityForce(pix, &other, likeness)
+		force = force.Add(&currentForce)
 	}
+
+	return force
+}
+
+func eulerMethod(pix *Pixicle, force geom.Vec, timestep float64) {
+	deltaPosition := pix.Velocity.Scale(timestep)
+	pix.newPosition = pix.Position.Add(&deltaPosition)
+
+	deltaVelocity := force.Scale(timestep)
+	pix.newVelocity = pix.Velocity.Add(&deltaVelocity)
+}
+
+// GravityCalculation performs the simple gravity equation to one pixicle.
+// The options parameter contains the keys ..., which map to values ...:
+//   - "likeness" : func(i,j int) float64 : returns likeness between two colourIndexes.
+//   - "..."
+func GravityCalculation(pix *Pixicle, pixs *[]Pixicle, timestep float64, options map[string]any) {
+	// TODO: the RK4 implementation!
+
+	force := totalGravityForce(pix, pixs, options)
+
+	eulerMethod(pix, force, timestep)
 }

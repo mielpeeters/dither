@@ -24,6 +24,24 @@ type Bounds struct {
 	Upper float32
 }
 
+// Vec is a type alias for a 2D floating point vector
+type Vec [2]float64
+
+// Add adds two vectors and returns the result
+func (v *Vec) Add(other *Vec) Vec {
+	return Vec{v[0] + other[0], v[1] + other[1]}
+}
+
+// Sub subtracts two vectors and returns the result
+func (v *Vec) Sub(other *Vec) Vec {
+	return Vec{v[0] - other[0], v[1] - other[1]}
+}
+
+// Scale scales the vector according to the scale
+func (v *Vec) Scale(scale float64) Vec {
+	return Vec{v[0] * scale, v[1] * scale}
+}
+
 // Dimension returns the dimension of the space this point lives in
 func (p *Point) Dimension() int {
 	return len(p.Coordinates)
