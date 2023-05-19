@@ -1,5 +1,5 @@
 # dither
-Implements the Floyd Steinberg Dithering algorithm, and some other image manipulation techniques.
+Implements the Error Diffusion Dithering algorithm, and some other image manipulation techniques.
 It is a work in progress, more effects are in the work.
 This go module contains multiple packages:
 - **process**: the core functionality, implementing the image algorithms (like FSD).
