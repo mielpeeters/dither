@@ -262,6 +262,27 @@ func (palette *ColorPalette) ToPalette() color.Palette {
 	return colors
 }
 
+// BW returns a black and white color palette
+func BW() color.Palette {
+	colors := []color.Color{}
+
+	colors = append(colors, color.RGBA{
+		R: 0,
+		G: 0,
+		B: 0,
+		A: 255,
+	})
+
+	colors = append(colors, color.RGBA{
+		R: 255,
+		G: 255,
+		B: 255,
+		A: 255,
+	})
+
+	return colors
+}
+
 // ToRGBA converts some color.Color into color.RGBA
 func ToRGBA(origColor color.Color) color.RGBA {
 	orig, ok := color.RGBAModel.Convert(origColor).(color.RGBA)

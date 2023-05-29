@@ -45,6 +45,8 @@ var Simple = *makeSimpleDiffuser()
 // Stucki is the EDM used for Stucki dithering
 var Stucki = *makeStuckiDiffuser()
 
+var Nothing = ErrorDiffusionMatrix{}
+
 // JarvisJudiceNinke is the EDM used for JarvisJudiceNinke dithering
 var JarvisJudiceNinke = ErrorDiffusionMatrix{
 	{1, 0, 7.0 / 48.0},
@@ -85,6 +87,14 @@ func Downscale(img image.Image, factor int) *image.RGBA {
 func Upscale(img image.Image, factor int) *image.RGBA {
 	dst := image.NewRGBA(image.Rect(0, 0, img.Bounds().Max.X*factor, img.Bounds().Max.Y*factor))
 	draw.NearestNeighbor.Scale(dst, dst.Rect, img, img.Bounds(), draw.Over, nil)
+
+	return dst
+}
+
+// Resize resizes the input to the desired x, y specification
+func Resize(img image.Image, x, y int) *image.RGBA {
+	dst := image.NewRGBA(image.Rect(0, 0, x, y))
+	draw.BiLinear.Scale(dst, dst.Rect, img, img.Bounds(), draw.Over, nil)
 
 	return dst
 }
