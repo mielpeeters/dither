@@ -72,6 +72,118 @@ func Create(img image.Image, k int) color.Palette {
 	return colorPalettes[minIndex].ToPalette()
 }
 
+// CreatePLT creates a new colorpalette using the k-means clustering algorithm
+//
+//   - samplefactor: how many pixles to skip, during sampling for the creatrion of the KMeans problem's cluster points
+//     (higher means faster, because less points to iterate over)
+//   - kmTimes defines the amount of times to start the k-means algorithm with random init, the best output is choosen
+func CreatePLT(img image.Image, k int) ColorPalette {
+	pointSet := geom.PointSet{}
+	// sample only 1/samplefactor of the pixels
+	for x := 0; x < img.Bounds().Max.X; x += SampleFactor {
+		for y := 0; y < img.Bounds().Max.Y; y += SampleFactor {
+			newPoint := colorToPoint(img.At(x, y))
+			newPoint.ID = x + y*img.Bounds().Max.X
+
+			pointSet.Points = append(pointSet.Points, newPoint)
+		}
+	}
+
+	var colorPalettes []ColorPalette
+	var errors []float64
+
+	// do the algorithm kmTimes
+	for i := 0; i < KMTimes; i++ {
+		KM := kmeans.CreateKMeansProblem(pointSet, k, geom.RedMeanDistance)
+
+		KM.Cluster(KMAccuracy, KMConsecutive)
+
+		colorPalette := ColorPalette{}
+		for index := range KM.KMeans.Points {
+			colorPalette.Colors = append(colorPalette.Colors, pointToColorSlice(KM.KMeans.Points[index]))
+		}
+
+		colorPalettes = append(colorPalettes, colorPalette)
+		errors = append(errors, KM.TotalDist())
+	}
+
+	// now select the colorpalette with the lowest error!
+	minIndex := findMinIndex(errors)
+
+	return colorPalettes[minIndex]
+}
+
+// Traverse is used to find colours on one line in the image
+func (colorpalette *ColorPalette) Traverse(img *image.Image, ltr bool, name string) (ColorPalette, int) {
+	var step image.Point
+	var maxX, maxY int
+	var currentPix image.Point
+	palette := ColorPalette{
+		Name:   name,
+		Colors: [][]int{},
+	}
+
+	maxBounds := (*img).Bounds().Max
+	maxX = maxBounds.X
+	maxY = maxBounds.Y
+
+	if ltr {
+		step = image.Point{1, 0}
+		currentPix = image.Point{
+			X: 0,
+			Y: maxBounds.Y / 2,
+		}
+	} else {
+		step = image.Point{0, 1}
+		currentPix = image.Point{
+			X: maxBounds.X / 2,
+			Y: 0,
+		}
+	}
+
+	consecutiveSame := 0
+
+	white := color.RGBA{
+		R: 255,
+		G: 255,
+		B: 255,
+		A: 255,
+	}
+
+	currentColor := color.RGBA{
+		R: 255,
+		G: 255,
+		B: 255,
+		A: 255,
+	}
+
+	for currentPix.X < maxX && currentPix.Y < maxY {
+		clr := (*img).At(currentPix.X, currentPix.Y)
+		clrRGBA := ToRGBA(clr)
+
+		if clrRGBA == currentColor {
+			consecutiveSame++
+		} else {
+			consecutiveSame = 0
+			currentColor = clrRGBA
+		}
+
+		if consecutiveSame == 8 && currentColor != white {
+			clrArray := []int{
+				int(currentColor.R),
+				int(currentColor.G),
+				int(currentColor.B),
+				int(currentColor.A),
+			}
+			palette.Colors = append(palette.Colors, clrArray)
+		}
+
+		currentPix = currentPix.Add(step)
+	}
+
+	return palette, len(palette.Colors)
+}
+
 func pointToColorSlice(point geom.Point) []int {
 	returnValue := []int{}
 
@@ -137,8 +249,23 @@ func GetPaletteWithName(name string, palettes []ColorPalette) *ColorPalette {
 }
 
 // ToJSONFile writes the given ColorPalette out to the specified path, as a JSON file (formatted).
-func (palette *ColorPalette) ToJSONFile(jsonFileName string) {
-	output, err := json.MarshalIndent(palette, "", "  ")
+func (colorpalette *ColorPalette) ToJSONFile(jsonFileName string) {
+	output, err := json.MarshalIndent(colorpalette, "", "  ")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	err = ioutil.WriteFile(jsonFileName, output, 0644)
+
+	if err != nil {
+		fmt.Println(err)
+	}
+}
+
+// ToJSONFileNoIndent writes the given ColorPalette out to the specified path, as a JSON file (formatted).
+func (colorpalette *ColorPalette) ToJSONFileNoIndent(jsonFileName string) {
+	output, err := json.Marshal(colorpalette)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -245,16 +372,16 @@ func ConvHSLAtoRGBA(hsla []float64) []float64 {
 
 // ToPalette converts between this custom ColorPalette and the
 // Go standard library color.Palette type struct
-func (palette *ColorPalette) ToPalette() color.Palette {
+func (colorpalette *ColorPalette) ToPalette() color.Palette {
 	colors := []color.Color{}
 	var paletteColor color.Color
 
-	for i := 0; i < len(palette.Colors); i++ {
+	for i := 0; i < len(colorpalette.Colors); i++ {
 		paletteColor = color.RGBA{
-			uint8(palette.Colors[i][0]),
-			uint8(palette.Colors[i][1]),
-			uint8(palette.Colors[i][2]),
-			uint8(palette.Colors[i][3]),
+			uint8(colorpalette.Colors[i][0]),
+			uint8(colorpalette.Colors[i][1]),
+			uint8(colorpalette.Colors[i][2]),
+			uint8(colorpalette.Colors[i][3]),
 		}
 		colors = append(colors, paletteColor)
 	}
