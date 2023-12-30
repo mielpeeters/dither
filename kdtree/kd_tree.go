@@ -17,7 +17,7 @@ type KDTree struct {
 
 // Node is a node struct for within a KD tree
 type Node struct {
-	PointValue geom.Point
+	PointValue []geom.Point
 	Left       *Node
 	Right      *Node
 	Parrent    *Node
@@ -31,10 +31,33 @@ func (node *Node) isRootNode() bool {
 	return node.Parrent == nil
 }
 
-func generateKDTreeFromPoints(points geom.PointSet, nmbAxis int) KDTree {
+func meanCutAlgorithm(points geom.PointSet) geom.PointSet {
+	var returnSet geom.PointSet
+
+	tree := generateKDTreeFromPoints(points, 5)
+
+	var leafs [][]geom.Point
+	tree.Root.leafs(&leafs)
+
+	for _, leaf := range leafs {
+		set := geom.PointSet{
+			Points: leaf,
+		}
+
+		// find the mean of the leaf\
+		mean := set.Mean()
+		returnSet.Points = append(returnSet.Points, mean)
+	}
+
+	return returnSet
+}
+
+func generateKDTreeFromPoints(points geom.PointSet, depth int) KDTree {
 	var kd KDTree
 
-	root := generateKDNodeFromPoints(points, 0, nmbAxis)
+	nmbAxis := len(points.Points[0].Coordinates)
+
+	root := generateKDNodeFromPoints(points, 0, nmbAxis, depth)
 
 	kd.Root = root
 
@@ -43,12 +66,28 @@ func generateKDTreeFromPoints(points geom.PointSet, nmbAxis int) KDTree {
 	return kd
 }
 
-func generateKDNodeFromPoints(points geom.PointSet, axis int, nmbAxis int) *Node {
+// Recursively create a KDTree from a set of points, on the given start axis
+// and with the given number of axis
+//
+// # Arguments:
+//   - points: the set of points to generate the node from
+//   - axis: the axis to split the node on
+//   - nmbAxis: the number of axis in total
+//   - depth: the depth to grow the tree to
+func generateKDNodeFromPoints(points geom.PointSet, axis int, nmbAxis int, depth int) *Node {
+	if depth == 0 {
+		return &Node{
+			points.Points,
+			nil,
+			nil,
+			nil,
+		}
+	}
 	// generate a left and a right pointset
 	leftSet, rightSet, pivot := points.BranchByMedian(axis)
 
 	thisNode := Node{
-		pivot,
+		[]geom.Point{pivot},
 		nil,
 		nil,
 		nil,
@@ -59,12 +98,12 @@ func generateKDNodeFromPoints(points geom.PointSet, axis int, nmbAxis int) *Node
 
 	if len(leftSet.Points) > 0 {
 		// create the current node
-		leftNode = generateKDNodeFromPoints(leftSet, (axis+1)%nmbAxis, nmbAxis)
+		leftNode = generateKDNodeFromPoints(leftSet, (axis+1)%nmbAxis, nmbAxis, depth-1)
 		leftNode.Parrent = &thisNode
 		thisNode.Left = leftNode
 
 		if len(rightSet.Points) > 0 {
-			rightNode = generateKDNodeFromPoints(rightSet, (axis+1)%nmbAxis, nmbAxis)
+			rightNode = generateKDNodeFromPoints(rightSet, (axis+1)%nmbAxis, nmbAxis, depth-1)
 			rightNode.Parrent = &thisNode
 			thisNode.Right = rightNode
 		}
@@ -114,10 +153,12 @@ func (node *Node) print(level int) {
 	fmt.Println(space, "* [ENDNODE] *")
 }
 
+// goDownOneLevel returns the node that is one level down from the current node,
+// and closest to the given point
 func (node *Node) goDownOneLevel(point geom.Point, level int) (*Node, bool) {
 	var returnNode *Node
 	var returnCode bool
-	if point.Coordinates[level] < node.PointValue.Coordinates[level] {
+	if point.Coordinates[level] < node.PointValue[0].Coordinates[level] {
 		if node.Left != nil {
 			returnNode = node.Left
 			returnCode = true
@@ -139,6 +180,20 @@ func (node *Node) goUpOneLevel() *Node {
 	returnNode := node.Parrent
 
 	return returnNode
+}
+
+func (node *Node) leafs(leaf_vals *[][]geom.Point) {
+	if len(node.PointValue) > 1 {
+		// this is a leaf node
+		*leaf_vals = append(*leaf_vals, node.PointValue)
+		return
+	}
+
+	if node.Left != nil {
+		node.Left.leafs(leaf_vals)
+	} else if node.Right != nil {
+		node.Right.leafs(leaf_vals)
+	}
 }
 
 func (kd *KDTree) findNearestNeighborTo(point geom.Point, distanceMetricFunction func(geom.Point, geom.Point) float64, nmbAxis int) (geom.Point, float64) {
@@ -165,7 +220,7 @@ func (kd *KDTree) findNearestNeighborTo(point geom.Point, distanceMetricFunction
 	}
 
 	// store the current best distance
-	currentBest = currentNode.PointValue
+	currentBest = currentNode.PointValue[0]
 	currentBestDist = distanceMetricFunction(currentBest, point)
 
 	if kd.BestDist == -1 || currentBestDist < kd.BestDist {
@@ -188,7 +243,7 @@ func (kd *KDTree) findNearestNeighborTo(point geom.Point, distanceMetricFunction
 			break
 		}
 
-		hyperplanedist = math.Pow(float64(point.Coordinates[currentLevel%nmbAxis]-currentNode.PointValue.Coordinates[currentLevel%nmbAxis]), 2)
+		hyperplanedist = math.Pow(float64(point.Coordinates[currentLevel%nmbAxis]-currentNode.PointValue[0].Coordinates[currentLevel%nmbAxis]), 2)
 
 		if kd.BestDist > hyperplanedist {
 			// the hypersphere intersects with the hyperplane
@@ -227,9 +282,9 @@ func (kd *KDTree) findNearestNeighborTo(point geom.Point, distanceMetricFunction
 		}
 	noIntersect:
 		// lastly, check whether the currentNode itself (which is the parent of the last one, possibly a root!) is closer
-		otherBestDist := distanceMetricFunction(currentNode.PointValue, point)
+		otherBestDist := distanceMetricFunction(currentNode.PointValue[0], point)
 		if otherBestDist < currentBestDist {
-			currentBest = currentNode.PointValue
+			currentBest = currentNode.PointValue[0]
 			currentBestDist = otherBestDist
 			kd.BestDist = currentBestDist
 		}
