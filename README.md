@@ -9,7 +9,7 @@ This go module contains multiple packages:
 - **nearneigh**: a work in progress, impelementation of a nearest neighbour search algorithm.
 - **kdtree**: a work in progress, implements a kd tree search structure for fast nearest neighbour.
 - **colorpalette**: a custom defined colorpalette type, with accompanying functions.
-- **gifeo**: a package for creating dithered gif videos (gif + video = gifeo)
+- **gifeo**: a package for creating dithered gif videos
 - **needle**: some functions that are useful for multithreading (the needle)
 
 <div style="display: flex; flex-direction: row; justify-content:space-evenly;"><img src="https://user-images.githubusercontent.com/72082402/225594701-a15c3d26-5ad9-4d42-9d25-cdc7751c8ad2.png" alt="example image created using the dither module." height="400">
